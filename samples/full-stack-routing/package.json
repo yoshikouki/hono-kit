@@ -1,5 +1,5 @@
 {
-  "name": "@yoshikouki/sample-rsc-basic",
+  "name": "@yoshikouki/sample-full-stack-routing",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@yoshikouki/hono-file-router": "workspace:*",
+    "@yoshikouki/hono-mdx-renderer": "workspace:*",
     "@yoshikouki/hono-rsc-renderer": "workspace:*",
     "hono": "^4.12.27",
     "react": "^19.2.5",

@@ -13,12 +13,14 @@ local development.
 
 ## Samples
 
-- `samples/file-router-basic` - uses `createFileRouter({ base: "./routes" })`
-  with the default `*.ts` Hono route module convention
-- `samples/mdx-basic` - verifies Markdown and MDX renderer integration with
-  explicit route sources
-- `samples/rsc-basic` - builds a Vite RSC app and verifies built HTML and
-  `/__rsc` Flight responses
+- `samples/file-router-basic` - uses explicit route sources with `*.ts` Hono
+  route modules
+- `samples/mdx-file-router-basic` - verifies Markdown and MDX renderer
+  integration with explicit route sources
+- `samples/rsc-file-router-vite-basic` - builds a Vite RSC file-router app and
+  verifies built HTML and `/__rsc` Flight responses
+- `samples/full-stack-routing` - combines Hono route modules, RSC pages, and
+  Markdown/MDX content routes in one router
 
 ## Design
 

@@ -19,12 +19,10 @@ import type {
 
 function resolveManifest<
   TContext,
-  TModule,
-  TData,
   E extends Env,
 >(
-  input: FileRouterInput<TContext, TModule, TData, E>
-): RouteManifest<TContext, TModule, TData> {
+  input: FileRouterInput<TContext, unknown, unknown, E>
+): RouteManifest<TContext> {
   if (input.manifest) {
     return input.manifest;
   }

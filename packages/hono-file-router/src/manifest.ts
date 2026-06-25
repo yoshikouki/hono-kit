@@ -116,11 +116,9 @@ function assertUniquePrimaryRoute(
 
 export function createRouteManifest<
   TContext = unknown,
-  TModule = unknown,
-  TData = unknown,
 >(
-  config: RouteManifestConfig<TContext, TModule, TData>
-): RouteManifest<TContext, TModule, TData> {
+  config: RouteManifestConfig<TContext>
+): RouteManifest<TContext> {
   const sources = Array.isArray(config.sources)
     ? config.sources
     : [config.sources];
@@ -129,12 +127,12 @@ export function createRouteManifest<
     throw new Error("createRouteManifest requires at least one route source.");
   }
 
-  const generatedRoutes: GeneratedRoute<TContext, TModule, TData>[] = [];
-  const handlers: HonoRoute<TModule>[] = [];
+  const generatedRoutes: GeneratedRoute<TContext>[] = [];
+  const handlers: HonoRoute[] = [];
   const primaryShapes = new Map<string, string>();
   const registered: RegisteredRoutePath[] = [];
-  const renderers: FileRouteRenderer<TContext, TModule, TData>[] = [];
-  const routes: FileRoute<TModule, TData>[] = [];
+  const renderers: FileRouteRenderer<TContext>[] = [];
+  const routes: FileRoute[] = [];
 
   for (const source of sources) {
     const dynamicRoutes = source.dynamicRoutes ?? true;
@@ -147,7 +145,7 @@ export function createRouteManifest<
       assertDynamicRoutePolicy(manifestPath.path, file, dynamicRoutes);
 
       if (isRendererSource(source)) {
-        const route: FileRoute<TModule, TData> = {
+        const route: FileRoute = {
           file,
           id: routeId(source.renderer.name, file),
           kind: source.kind ?? "page",
@@ -188,7 +186,7 @@ export function createRouteManifest<
         continue;
       }
 
-      const handler: HonoRoute<TModule> = {
+      const handler: HonoRoute = {
         file,
         id: routeId(source.routes.name, file),
         load: toLoader(value),

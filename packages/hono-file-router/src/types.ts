@@ -141,20 +141,22 @@ export type RouteSource<
   | RendererSource<TContext, TModule, TData>
   | HonoRoutesSource<TModule>;
 
-export type RouteSources<
-  TContext = unknown,
-  TModule = unknown,
-  TData = unknown,
-> =
-  | RouteSource<TContext, TModule, TData>
-  | RouteSource<TContext, TModule, TData>[];
+export type AnyRouteSource<TContext = unknown> = RouteSource<
+  TContext,
+  unknown,
+  unknown
+>;
+
+export type RouteSources<TContext = unknown> =
+  | AnyRouteSource<TContext>
+  | AnyRouteSource<TContext>[];
 
 export interface RouteManifestConfig<
   TContext = unknown,
-  TModule = unknown,
-  TData = unknown,
+  _TModule = unknown,
+  _TData = unknown,
 > {
-  sources: RouteSources<TContext, TModule, TData>;
+  sources: RouteSources<TContext>;
 }
 
 export interface RouteManifest<
@@ -176,12 +178,12 @@ export type FileRouterInput<
 > = FileRouterOptions<TContext, E> &
   (
     | {
-        manifest: RouteManifest<TContext, TModule, TData>;
+        manifest: RouteManifest<TContext>;
         sources?: never;
       }
     | {
         manifest?: never;
-        sources: RouteSources<TContext, TModule, TData>;
+        sources: RouteSources<TContext>;
       }
   );
 

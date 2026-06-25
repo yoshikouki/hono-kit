@@ -65,8 +65,27 @@
         "typescript": "^6.0.3",
       },
     },
-    "samples/mdx-basic": {
-      "name": "@yoshikouki/sample-mdx-basic",
+    "samples/full-stack-routing": {
+      "name": "@yoshikouki/sample-full-stack-routing",
+      "version": "0.0.0",
+      "dependencies": {
+        "@yoshikouki/hono-file-router": "workspace:*",
+        "@yoshikouki/hono-mdx-renderer": "workspace:*",
+        "@yoshikouki/hono-rsc-renderer": "workspace:*",
+        "hono": "^4.12.27",
+        "react": "^19.2.5",
+        "react-dom": "^19.2.5",
+      },
+      "devDependencies": {
+        "@types/react": "^19.2.15",
+        "@types/react-dom": "^19.2.3",
+        "@vitejs/plugin-rsc": "^0.5.27",
+        "typescript": "^6.0.3",
+        "vite": "^8.1.0",
+      },
+    },
+    "samples/mdx-file-router-basic": {
+      "name": "@yoshikouki/sample-mdx-file-router-basic",
       "version": "0.0.0",
       "dependencies": {
         "@yoshikouki/hono-file-router": "workspace:*",
@@ -77,8 +96,8 @@
         "typescript": "^6.0.3",
       },
     },
-    "samples/rsc-basic": {
-      "name": "@yoshikouki/sample-rsc-basic",
+    "samples/rsc-file-router-vite-basic": {
+      "name": "@yoshikouki/sample-rsc-file-router-vite-basic",
       "version": "0.0.0",
       "dependencies": {
         "@yoshikouki/hono-file-router": "workspace:*",
@@ -159,9 +178,11 @@
 
     "@yoshikouki/sample-file-router-basic": ["@yoshikouki/sample-file-router-basic@workspace:samples/file-router-basic"],
 
-    "@yoshikouki/sample-mdx-basic": ["@yoshikouki/sample-mdx-basic@workspace:samples/mdx-basic"],
+    "@yoshikouki/sample-full-stack-routing": ["@yoshikouki/sample-full-stack-routing@workspace:samples/full-stack-routing"],
 
-    "@yoshikouki/sample-rsc-basic": ["@yoshikouki/sample-rsc-basic@workspace:samples/rsc-basic"],
+    "@yoshikouki/sample-mdx-file-router-basic": ["@yoshikouki/sample-mdx-file-router-basic@workspace:samples/mdx-file-router-basic"],
+
+    "@yoshikouki/sample-rsc-file-router-vite-basic": ["@yoshikouki/sample-rsc-file-router-vite-basic@workspace:samples/rsc-file-router-vite-basic"],
 
     "csstype": ["csstype@3.2.3", "", {}, "sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ=="],
 

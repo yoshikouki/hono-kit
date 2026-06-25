@@ -28,6 +28,7 @@ export type {
   HttpMethod,
   MatchedRoute,
   MountFileRoutesOptions,
+  AnyRouteSource,
   RendererSource,
   RenderInput,
   RouteManifest,

@@ -29,23 +29,27 @@ router about RSC, Markdown, or MDX semantics.
 
 ## API Shape
 
-The shortest Bun-hosted API is one step. By default, `*.ts` files under `base`
-are discovered and treated as Hono route modules:
+The router core receives explicit route sources. File discovery stays with the
+caller or the build tool, so Vite glob options such as `base`, `eager`, `query`,
+and `import` remain visible to the application:
 
 ```ts
 import { Hono } from "hono";
 import { createFileRouter } from "@yoshikouki/hono-file-router";
+import { honoRoutes } from "@yoshikouki/hono-file-router/hono-routes";
 
 const fileBasedRoutes = createFileRouter({
-  base: "./routes",
+  sources: {
+    files: import.meta.glob("./**/*.ts", { base: "./routes" }),
+    routes: honoRoutes(),
+  },
 });
 
 const app = new Hono();
 app.route("/", fileBasedRoutes);
 ```
 
-Renderer integrations use explicit source sets so bundlers such as Vite can keep
-glob patterns statically visible:
+Renderer integrations use the same source shape:
 
 ```ts
 import { Hono } from "hono";
@@ -56,19 +60,19 @@ import { mdxRenderer } from "@yoshikouki/hono-mdx-renderer";
 import { rscRenderer } from "@yoshikouki/hono-rsc-renderer";
 
 const fileBasedRoutes = createFileRouter({
-  base: "./routes",
   sources: [
     {
-      files: import.meta.glob("./routes/**/*.tsx"),
+      files: import.meta.glob("./**/*.tsx", { base: "./routes/pages" }),
       renderer: rscRenderer(),
       dynamicRoutes: true,
     },
     {
-      files: import.meta.glob("./routes/**/*.ts"),
+      files: import.meta.glob("./api/**/*.ts", { base: "./routes" }),
       routes: honoRoutes(),
     },
     {
-      files: import.meta.glob("./routes/**/*.md", {
+      files: import.meta.glob("./**/*.md", {
+        base: "./routes/content",
         query: "?raw",
         import: "default",
         eager: true,
@@ -76,7 +80,7 @@ const fileBasedRoutes = createFileRouter({
       renderer: mdRenderer(),
     },
     {
-      files: import.meta.glob("./routes/**/*.mdx"),
+      files: import.meta.glob("./**/*.mdx", { base: "./routes/content" }),
       renderer: mdxRenderer(),
     },
   ],
@@ -86,9 +90,9 @@ const app = new Hono();
 app.route("/", fileBasedRoutes);
 ```
 
-`createFileRouter(config)` is convenience. It normalizes the source config into
-a manifest, creates a Hono sub-app, and delegates registration to
-`mountFileRoutes`.
+`createFileRouter(config)` normalizes the source config into a manifest, creates
+a Hono sub-app, passes through Hono constructor options such as `strict`,
+`router`, and `getPath`, and delegates registration to `mountFileRoutes`.
 
 The explicit form is public for tests, debug tools, and derived outputs:
 
@@ -100,7 +104,6 @@ import {
 } from "@yoshikouki/hono-file-router";
 
 const manifest = createRouteManifest({
-  base: "./routes",
   sources,
 });
 
@@ -115,11 +118,11 @@ layer.
 
 ## Core Types
 
-`RouteManifestConfig` is user input. It carries a `base` directory and, for
-explicit integrations, one or more source declarations. `createFileRouter({
-base })` is a Bun runtime convention for `*.ts` Hono route modules. Renderer
-integrations pass Vite's glob result explicitly so Vite can keep the glob
-pattern statically visible.
+`RouteManifestConfig` is user input. It carries one or more source declarations.
+Route file keys are route-root-relative; callers can use Vite's
+`import.meta.glob(..., { base })` or explicit module maps to produce those keys.
+Renderer integrations pass Vite's glob result explicitly so Vite can keep the
+glob pattern statically visible.
 
 `RouteSource` binds a file set to exactly one route producer. Page-like sources
 use `renderer`; plain `.ts` Hono route modules use `routes`. Source-local
@@ -262,20 +265,25 @@ contract because they create a second source of truth next to `sources`.
 
 ## API Cardinality
 
-- `base`: required once per config.
-- `sources`: optional for Bun `*.ts` Hono route module discovery. Required and
-  non-empty for explicit renderer or `import.meta.glob` integrations.
-- `source.files`: required. It is the direct result of `import.meta.glob`.
+- `sources`: required for source-based router creation. It may be one source or
+  an array of sources.
+- `manifest`: optional advanced input. It is mutually exclusive with `sources`.
+- Route file keys are route-root-relative. Use `import.meta.glob` options such
+  as `{ base: "./routes" }` or explicit module maps to produce those keys.
+- `source.files`: required. It can be the direct result of `import.meta.glob`
+  or an explicit module map with the same shape.
 - `source.renderer`: zero or one. Required for page/content sources.
 - `source.routes`: zero or one. Required for plain Hono route module sources.
 - `source.renderer` and `source.routes`: mutually exclusive.
 - `dynamicRoutes`: optional, default `true` for page-like sources.
 - Raw/eager behavior: configured in `import.meta.glob`, not duplicated by the
   router config.
+- Hono constructor options such as `strict`, `router`, and `getPath` are passed
+  through on the top-level `createFileRouter` options object.
 
-`createFileRouter` accepts `{ base }`, `RouteManifestConfig`, or `{ manifest }`.
-`mountFileRoutes` accepts the same shape, but it mutates a caller-owned Hono app
-instead of creating a sub-app.
+`createFileRouter` accepts `{ sources, ...honoOptions }` or
+`{ manifest, ...honoOptions }`. `mountFileRoutes` accepts the same shape, but
+it mutates a caller-owned Hono app instead of creating a sub-app.
 
 ## Current Milestone
 
@@ -288,6 +296,7 @@ bun run build
 ```
 
 The checked surface includes public manifest types, pure route path tests,
-generated route collision checks, `mountFileRoutes`, `createFileRouter`, default
-`.ts` Hono route module discovery, standard renderers,
-`samples/file-router-basic`, `samples/mdx-basic`, and `samples/rsc-basic`.
+generated route collision checks, `mountFileRoutes`, `createFileRouter`,
+explicit `.ts` Hono route module sources, standard renderers,
+`samples/file-router-basic`, `samples/mdx-file-router-basic`,
+`samples/rsc-file-router-vite-basic`, and `samples/full-stack-routing`.
