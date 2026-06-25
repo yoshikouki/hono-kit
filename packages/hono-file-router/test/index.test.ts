@@ -95,6 +95,22 @@ test("sorts deeper static routes before shallower unrelated routes", () => {
   ]);
 });
 
+test("sorts static generated routes before unrelated dynamic routes", () => {
+  const routes = [
+    { path: "/users/settings" },
+    { path: "/users/:id" },
+    { path: "/__rsc/users/:id" },
+    { path: "/users/settings.md" },
+  ];
+
+  expect(sortRoutesBySpecificity(routes).map((route) => route.path)).toEqual([
+    "/users/settings",
+    "/users/settings.md",
+    "/users/:id",
+    "/__rsc/users/:id",
+  ]);
+});
+
 test("builds a route manifest from explicit glob results", () => {
   const manifest = createRouteManifest({
     sources: [
@@ -226,6 +242,43 @@ test("mounts file routes onto an existing Hono app", async () => {
   expect(await (await app.request("/about")).text()).toBe("about");
 });
 
+test("serves generated static routes before dynamic primary routes", async () => {
+  const renderer: FileRouteRenderer = {
+    name: "generated-markdown",
+    accepts: () => true,
+    generatedRoutes(route) {
+      if (route.path !== "/users/settings") {
+        return [];
+      }
+      return [
+        {
+          owner: route.id,
+          path: "/users/settings.md",
+          render: () => new Response("raw-settings"),
+        },
+      ];
+    },
+    render(input) {
+      return new Response(`primary:${input.route.path}`);
+    },
+  };
+  const app = createFileRouter({
+    sources: [
+      {
+        files: {
+          "./users/[id].tsx": "dynamic",
+          "./users/settings.tsx": "settings",
+        },
+        renderer,
+      },
+    ],
+  });
+
+  expect(await (await app.request("/users/settings.md")).text()).toBe(
+    "raw-settings"
+  );
+});
+
 test("proxies .ts modules as plain Hono route modules", async () => {
   const api = new Hono();
   api.get("/", (c) => c.text("api-root"));
@@ -246,6 +299,34 @@ test("proxies .ts modules as plain Hono route modules", async () => {
   expect(await (await app.request("/api/hello/codex")).text()).toBe(
     "hello:codex"
   );
+});
+
+test("preserves Hono context variables for eager route modules", async () => {
+  interface TestEnv {
+    Variables: {
+      greeting: string;
+    };
+  }
+  const api = new Hono<TestEnv>();
+  api.get("/", (c) => c.text(c.var.greeting));
+
+  const app = new Hono<TestEnv>();
+  app.use("*", async (c, next) => {
+    c.set("greeting", "hello");
+    await next();
+  });
+  mountFileRoutes(app, {
+    sources: [
+      {
+        files: {
+          "./api.ts": api,
+        },
+        routes: honoRoutes(),
+      },
+    ],
+  });
+
+  expect(await (await app.request("/api")).text()).toBe("hello");
 });
 
 test("builds request pathnames from dynamic params", () => {

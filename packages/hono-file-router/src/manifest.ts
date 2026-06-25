@@ -33,6 +33,10 @@ function toLoader<TModule>(value: GlobValue<TModule>): () => Promise<TModule> {
   };
 }
 
+function eagerModule<TModule>(value: GlobValue<TModule>): TModule | undefined {
+  return typeof value === "function" ? undefined : value;
+}
+
 function assertDynamicRoutePolicy(
   path: string,
   file: string,
@@ -190,6 +194,7 @@ export function createRouteManifest<
         file,
         id: routeId(source.routes.name, file),
         load: toLoader(value),
+        module: eagerModule(value),
         path: manifestPath.path,
         routeDirectory: manifestPath.routeDirectory,
         routesName: source.routes.name,

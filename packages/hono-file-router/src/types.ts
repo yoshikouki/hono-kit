@@ -108,6 +108,7 @@ export interface HonoRoute<TModule = unknown> {
   file: string;
   id: string;
   load: () => Promise<TModule>;
+  module?: TModule;
   path: string;
   routeDirectory: string;
   routesName: string;

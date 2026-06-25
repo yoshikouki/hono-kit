@@ -113,6 +113,18 @@ function hasDynamicSegment(segments: string[]): boolean {
   return segments.some(isDynamicSegment);
 }
 
+function routePrefixesCompatible(aSegments: string[], bSegments: string[]): boolean {
+  const length = Math.min(aSegments.length, bSegments.length);
+  for (let i = 0; i < length; i += 1) {
+    const a = aSegments[i];
+    const b = bSegments[i];
+    if (a !== b && !(isDynamicSegment(a) || isDynamicSegment(b))) {
+      return false;
+    }
+  }
+  return true;
+}
+
 export function routePathsOverlap(a: string, b: string): boolean {
   const aSegments = pathSegments(a);
   const bSegments = pathSegments(b);
@@ -131,6 +143,22 @@ export function routePathsOverlap(a: string, b: string): boolean {
 function compareRouteSpecificity(a: string, b: string): number {
   const aSegments = pathSegments(a);
   const bSegments = pathSegments(b);
+  const aHasDynamic = hasDynamicSegment(aSegments);
+  const bHasDynamic = hasDynamicSegment(bSegments);
+
+  if (!routePathsOverlap(a, b)) {
+    if (aHasDynamic !== bHasDynamic) {
+      return aHasDynamic ? 1 : -1;
+    }
+    if (!(aHasDynamic || bHasDynamic)) {
+      return bSegments.length - aSegments.length;
+    }
+    if (routePrefixesCompatible(aSegments, bSegments)) {
+      return bSegments.length - aSegments.length;
+    }
+    return 0;
+  }
+
   const length = Math.min(aSegments.length, bSegments.length);
 
   for (let i = 0; i < length; i += 1) {
@@ -138,12 +166,6 @@ function compareRouteSpecificity(a: string, b: string): number {
     const bDynamic = isDynamicSegment(bSegments[i]);
     if (aDynamic !== bDynamic) {
       return aDynamic ? 1 : -1;
-    }
-    if (!aDynamic && aSegments[i] !== bSegments[i]) {
-      const hasDynamicRemainder =
-        hasDynamicSegment(aSegments.slice(i + 1)) ||
-        hasDynamicSegment(bSegments.slice(i + 1));
-      return hasDynamicRemainder ? 0 : bSegments.length - aSegments.length;
     }
   }
 

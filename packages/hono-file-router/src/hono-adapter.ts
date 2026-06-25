@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { Env, Handler } from "hono";
 import { createRouteManifest } from "./manifest";
-import { pathnameFromRoutePath } from "./route-path";
+import { pathnameFromRoutePath, sortRoutesBySpecificity } from "./route-path";
 import type {
   CreateFileRouterOptions,
   FileRoute,
@@ -16,6 +16,11 @@ import type {
   RouteManifest,
   RouteParams,
 } from "./types";
+
+interface MountableRoute {
+  path: string;
+  register: () => void;
+}
 
 function resolveManifest<
   TContext,
@@ -176,16 +181,19 @@ export function mountFileRoutes<
 ): Hono<E> {
   const manifest = resolveManifest(options);
 
-  for (const route of manifest.routes) {
-    app.get(route.path, async (c) => {
-      const renderer = rendererForRoute(manifest, route);
-      return renderer.render(
-        await createRenderInput(c.req.raw, route, c.req.param(), options)
-      );
-    });
-  }
-
   const routesById = new Map(manifest.routes.map((route) => [route.id, route]));
+  const mountableRoutes: MountableRoute[] = manifest.routes.map((route) => ({
+    path: route.path,
+    register: () => {
+      app.get(route.path, async (c) => {
+        const renderer = rendererForRoute(manifest, route);
+        return renderer.render(
+          await createRenderInput(c.req.raw, route, c.req.param(), options)
+        );
+      });
+    },
+  }));
+
   for (const generatedRoute of manifest.generatedRoutes) {
     const owner = routesById.get(generatedRoute.owner);
     if (!owner) {
@@ -193,24 +201,41 @@ export function mountFileRoutes<
         `Generated route "${generatedRoute.path}" references unknown owner "${generatedRoute.owner}".`
       );
     }
-    registerGeneratedRoute(
-      app,
-      generatedRoute.path,
-      generatedRoute.method ?? "GET",
-      async (c) =>
-        generatedRoute.render(
-          await createRenderInput(
-            c.req.raw,
-            owner,
-            c.req.param(),
-            options,
-            generatedRoute
-          )
-        )
-    );
+    mountableRoutes.push({
+      path: generatedRoute.path,
+      register: () => {
+        registerGeneratedRoute(
+          app,
+          generatedRoute.path,
+          generatedRoute.method ?? "GET",
+          async (c) =>
+            generatedRoute.render(
+              await createRenderInput(
+                c.req.raw,
+                owner,
+                c.req.param(),
+                options,
+                generatedRoute
+              )
+            )
+        );
+      },
+    });
+  }
+
+  for (const route of sortRoutesBySpecificity(mountableRoutes)) {
+    route.register();
   }
 
   for (const handlerRoute of manifest.handlers) {
+    if (handlerRoute.module) {
+      const routeApp = honoAppFromModule(handlerRoute.module);
+      if (isRoutableHonoApp(routeApp)) {
+        app.route(handlerRoute.path, routeApp as unknown as Hono<E>);
+        continue;
+      }
+    }
+
     let mountedApp: HonoLikeApp | undefined;
     const handler: Handler<E> = async (c) => {
       if (!mountedApp) {
