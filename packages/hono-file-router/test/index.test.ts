@@ -86,6 +86,15 @@ test("sorts static siblings before dynamic siblings", () => {
   ]);
 });
 
+test("sorts deeper static routes before shallower unrelated routes", () => {
+  const routes = [{ path: "/about" }, { path: "/api/about.md" }];
+
+  expect(sortRoutesBySpecificity(routes).map((route) => route.path)).toEqual([
+    "/api/about.md",
+    "/about",
+  ]);
+});
+
 test("builds a route manifest from explicit glob results", () => {
   const manifest = createRouteManifest({
     sources: [

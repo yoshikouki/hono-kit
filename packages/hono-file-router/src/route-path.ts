@@ -109,6 +109,10 @@ function isDynamicSegment(segment: string): boolean {
   return segment.startsWith(":");
 }
 
+function hasDynamicSegment(segments: string[]): boolean {
+  return segments.some(isDynamicSegment);
+}
+
 export function routePathsOverlap(a: string, b: string): boolean {
   const aSegments = pathSegments(a);
   const bSegments = pathSegments(b);
@@ -136,7 +140,10 @@ function compareRouteSpecificity(a: string, b: string): number {
       return aDynamic ? 1 : -1;
     }
     if (!aDynamic && aSegments[i] !== bSegments[i]) {
-      return 0;
+      const hasDynamicRemainder =
+        hasDynamicSegment(aSegments.slice(i + 1)) ||
+        hasDynamicSegment(bSegments.slice(i + 1));
+      return hasDynamicRemainder ? 0 : bSegments.length - aSegments.length;
     }
   }
 
