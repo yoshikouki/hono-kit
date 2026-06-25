@@ -2,8 +2,8 @@
 
 Basic consumer sample for `@yoshikouki/hono-file-router`.
 
-The sample uses `createFileRouter({ base: "./routes" })` and the default
-convention that `*.ts` files under `src/routes` default export Hono routers.
+The sample uses `createFileRouter({ sources })` with an explicit module map.
+Each route file under `src/routes` default exports a Hono router.
 
 ```sh
 bun run test

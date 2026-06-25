@@ -121,7 +121,11 @@ export function createRouteManifest<
 >(
   config: RouteManifestConfig<TContext, TModule, TData>
 ): RouteManifest<TContext, TModule, TData> {
-  if (config.sources.length === 0) {
+  const sources = Array.isArray(config.sources)
+    ? config.sources
+    : [config.sources];
+
+  if (sources.length === 0) {
     throw new Error("createRouteManifest requires at least one route source.");
   }
 
@@ -132,16 +136,14 @@ export function createRouteManifest<
   const renderers: FileRouteRenderer<TContext, TModule, TData>[] = [];
   const routes: FileRoute<TModule, TData>[] = [];
 
-  for (const source of config.sources) {
+  for (const source of sources) {
     const dynamicRoutes = source.dynamicRoutes ?? true;
     if (isRendererSource(source)) {
       renderers.push(source.renderer);
     }
 
     for (const [file, value] of Object.entries(source.files)) {
-      const manifestPath = routeFileToManifestPath(file, {
-        base: config.base,
-      });
+      const manifestPath = routeFileToManifestPath(file);
       assertDynamicRoutePolicy(manifestPath.path, file, dynamicRoutes);
 
       if (isRendererSource(source)) {

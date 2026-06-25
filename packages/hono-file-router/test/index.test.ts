@@ -40,33 +40,26 @@ const textRenderer = (name = "text"): FileRouteRenderer => ({
 });
 
 test("converts route files into Hono paths", () => {
-  expect(
-    routeFileToManifestPath("./routes/users/[userId]/index.tsx", {
-      base: "./routes",
-    })
-  ).toEqual({
+  expect(routeFileToManifestPath("./users/[userId]/index.tsx")).toEqual({
     path: "/users/:userId",
     routeDirectory: "users/[userId]",
   });
-  expect(
-    routeFileToManifestPath("./routes/index.tsx", { base: "./routes" })
-  ).toEqual({ path: "/", routeDirectory: "" });
+  expect(routeFileToManifestPath("./index.tsx")).toEqual({
+    path: "/",
+    routeDirectory: "",
+  });
 });
 
 test("rejects unsupported dynamic segment syntax", () => {
-  expect(() =>
-    routeFileToManifestPath("./routes/posts/[...slug].tsx", {
-      base: "./routes",
-    })
-  ).toThrow(/Unsupported dynamic route segment/);
+  expect(() => routeFileToManifestPath("./posts/[...slug].tsx")).toThrow(
+    /Unsupported dynamic route segment/
+  );
 });
 
 test("rejects duplicate dynamic segment names in one route path", () => {
-  expect(() =>
-    routeFileToManifestPath("./routes/users/[id]/posts/[id].ts", {
-      base: "./routes",
-    })
-  ).toThrow(/Duplicate dynamic route param "id"/);
+  expect(() => routeFileToManifestPath("./users/[id]/posts/[id].ts")).toThrow(
+    /Duplicate dynamic route param "id"/
+  );
 });
 
 test("normalizes route shapes and overlap", () => {
@@ -95,12 +88,11 @@ test("sorts static siblings before dynamic siblings", () => {
 
 test("builds a route manifest from explicit glob results", () => {
   const manifest = createRouteManifest({
-    base: "./routes",
     sources: [
       {
         files: {
-          "./routes/about.tsx": "about",
-          "./routes/users/[id].tsx": "user",
+          "./about.tsx": "about",
+          "./users/[id].tsx": "user",
         },
         renderer: textRenderer(),
       },
@@ -120,12 +112,11 @@ test("builds a route manifest from explicit glob results", () => {
 test("rejects same-shape primary route duplicates", () => {
   expect(() =>
     createRouteManifest({
-      base: "./routes",
       sources: [
         {
           files: {
-            "./routes/users/[id].tsx": "a",
-            "./routes/users/[name].tsx": "b",
+            "./users/[id].tsx": "a",
+            "./users/[name].tsx": "b",
           },
           renderer: textRenderer(),
         },
@@ -137,12 +128,11 @@ test("rejects same-shape primary route duplicates", () => {
 test("rejects generated routes that collide with primary routes", () => {
   expect(() =>
     createRouteManifest({
-      base: "./routes",
       sources: [
         {
           files: {
-            "./routes/about.tsx": "about",
-            "./routes/__data/about.tsx": "collision",
+            "./about.tsx": "about",
+            "./__data/about.tsx": "collision",
           },
           renderer: textRenderer(),
         },
@@ -156,17 +146,16 @@ test("rejects primary collisions between page and Hono route modules", () => {
 
   expect(() =>
     createRouteManifest({
-      base: "./routes",
       sources: [
         {
           files: {
-            "./routes/api.tsx": "page",
+            "./api.tsx": "page",
           },
           renderer: textRenderer(),
         },
         {
           files: {
-            "./routes/api.ts": { default: api },
+            "./api.ts": { default: api },
           },
           routes: honoRoutes(),
         },
@@ -178,12 +167,11 @@ test("rejects primary collisions between page and Hono route modules", () => {
 test("rejects dynamic files when a source disables dynamic routes", () => {
   expect(() =>
     createRouteManifest({
-      base: "./routes",
       sources: [
         {
           dynamicRoutes: false,
           files: {
-            "./routes/users/[id].tsx": "user",
+            "./users/[id].tsx": "user",
           },
           renderer: textRenderer(),
         },
@@ -194,11 +182,10 @@ test("rejects dynamic files when a source disables dynamic routes", () => {
 
 test("creates a Hono sub-app from route config", async () => {
   const app = createFileRouter({
-    base: "./routes",
     sources: [
       {
         files: {
-          "./routes/users/[id].tsx": {
+          "./users/[id].tsx": {
             default: (params: Record<string, string>) => `user:${params.id}`,
           },
         },
@@ -218,10 +205,9 @@ test("mounts file routes onto an existing Hono app", async () => {
   const app = new Hono();
   app.get("/healthz", (c) => c.text("ok"));
   mountFileRoutes(app, {
-    base: "./routes",
     sources: [
       {
-        files: { "./routes/about.tsx": "about" },
+        files: { "./about.tsx": "about" },
         renderer: textRenderer(),
       },
     ],
@@ -237,11 +223,10 @@ test("proxies .ts modules as plain Hono route modules", async () => {
   api.get("/hello/:name", (c) => c.text(`hello:${c.req.param("name")}`));
 
   const app = createFileRouter({
-    base: "./routes",
     sources: [
       {
         files: {
-          "./routes/api.ts": { default: api },
+          "./api.ts": { default: api },
         },
         routes: honoRoutes(),
       },
@@ -251,18 +236,6 @@ test("proxies .ts modules as plain Hono route modules", async () => {
   expect(await (await app.request("/api")).text()).toBe("api-root");
   expect(await (await app.request("/api/hello/codex")).text()).toBe(
     "hello:codex"
-  );
-});
-
-test("discovers .ts Hono route modules by convention", async () => {
-  const app = createFileRouter({
-    base: "./fixtures/basic-routes",
-  });
-
-  expect(await (await app.request("/")).text()).toBe("fixture-home");
-  expect(await (await app.request("/users/42")).text()).toBe("fixture-user:42");
-  expect(await (await app.request("/users/42/posts/9")).text()).toBe(
-    "fixture-user:42/post:9"
   );
 });
 

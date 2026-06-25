@@ -1,3 +1,6 @@
+import type { Env } from "hono";
+import type { HonoOptions } from "hono/hono-base";
+
 export type FileRouteKind =
   | "page"
   | "content"
@@ -138,18 +141,20 @@ export type RouteSource<
   | RendererSource<TContext, TModule, TData>
   | HonoRoutesSource<TModule>;
 
+export type RouteSources<
+  TContext = unknown,
+  TModule = unknown,
+  TData = unknown,
+> =
+  | RouteSource<TContext, TModule, TData>
+  | RouteSource<TContext, TModule, TData>[];
+
 export interface RouteManifestConfig<
   TContext = unknown,
   TModule = unknown,
   TData = unknown,
 > {
-  base: string;
-  sources: RouteSource<TContext, TModule, TData>[];
-}
-
-export interface DefaultRouteManifestConfig {
-  base: string;
-  sources?: never;
+  sources: RouteSources<TContext, TModule, TData>;
 }
 
 export interface RouteManifest<
@@ -167,24 +172,36 @@ export type FileRouterInput<
   TContext = unknown,
   TModule = unknown,
   TData = unknown,
-> =
-  | RouteManifestConfig<TContext, TModule, TData>
-  | DefaultRouteManifestConfig
-  | { manifest: RouteManifest<TContext, TModule, TData> };
+  E extends Env = Env,
+> = FileRouterOptions<TContext, E> &
+  (
+    | {
+        manifest: RouteManifest<TContext, TModule, TData>;
+        sources?: never;
+      }
+    | {
+        manifest?: never;
+        sources: RouteSources<TContext, TModule, TData>;
+      }
+  );
 
-export interface FileRouterOptions<TContext = unknown> {
+export interface FileRouterOptions<
+  TContext = unknown,
+  E extends Env = Env,
+> extends HonoOptions<E> {
   createContext?: (request: Request) => TContext | Promise<TContext>;
-  strict?: boolean;
 }
 
 export type CreateFileRouterOptions<
   TContext = unknown,
   TModule = unknown,
   TData = unknown,
-> = FileRouterInput<TContext, TModule, TData> & FileRouterOptions<TContext>;
+  E extends Env = Env,
+> = FileRouterInput<TContext, TModule, TData, E>;
 
 export type MountFileRoutesOptions<
   TContext = unknown,
   TModule = unknown,
   TData = unknown,
-> = FileRouterInput<TContext, TModule, TData> & FileRouterOptions<TContext>;
+  E extends Env = Env,
+> = FileRouterInput<TContext, TModule, TData, E>;

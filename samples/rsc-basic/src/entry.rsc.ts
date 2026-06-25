@@ -3,10 +3,9 @@ import { createFileRouter } from "@yoshikouki/hono-file-router";
 import { rscRenderer } from "@yoshikouki/hono-rsc-renderer";
 
 const routes = createFileRouter({
-  base: "./routes",
   sources: [
     {
-      files: import.meta.glob("./routes/**/*.tsx"),
+      files: import.meta.glob("./**/*.tsx", { base: "./routes" }),
       renderer: rscRenderer(),
     },
   ],

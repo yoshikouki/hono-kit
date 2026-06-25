@@ -10,7 +10,6 @@ export {
 } from "./route-path";
 export type {
   CreateFileRouterOptions,
-  DefaultRouteManifestConfig,
   FileRoute,
   FileRouteAdapter,
   FileRouteKind,
@@ -35,4 +34,5 @@ export type {
   RouteManifestConfig,
   RouteParams,
   RouteSource,
+  RouteSources,
 } from "./types";

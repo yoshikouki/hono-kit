@@ -1,11 +1,9 @@
 import { Hono } from "hono";
 import type { Env, Handler } from "hono";
-import { createDefaultHonoRouteSource } from "./discovery/bun";
 import { createRouteManifest } from "./manifest";
 import { pathnameFromRoutePath } from "./route-path";
 import type {
   CreateFileRouterOptions,
-  DefaultRouteManifestConfig,
   FileRoute,
   FileRouteRenderer,
   FileRouterInput,
@@ -16,43 +14,22 @@ import type {
   MountFileRoutesOptions,
   RenderInput,
   RouteManifest,
-  RouteManifestConfig,
   RouteParams,
 } from "./types";
-
-function hasExplicitSources<
-  TContext,
-  TModule,
-  TData,
->(
-  input:
-    | RouteManifestConfig<TContext, TModule, TData>
-    | DefaultRouteManifestConfig
-): input is RouteManifestConfig<TContext, TModule, TData> {
-  return Array.isArray(
-    (input as RouteManifestConfig<TContext, TModule, TData>).sources
-  );
-}
 
 function resolveManifest<
   TContext,
   TModule,
   TData,
+  E extends Env,
 >(
-  input: FileRouterInput<TContext, TModule, TData>
+  input: FileRouterInput<TContext, TModule, TData, E>
 ): RouteManifest<TContext, TModule, TData> {
-  if ("manifest" in input) {
+  if (input.manifest) {
     return input.manifest;
   }
 
-  if (hasExplicitSources(input)) {
-    return createRouteManifest(input);
-  }
-
-  return createRouteManifest({
-    base: input.base,
-    sources: [createDefaultHonoRouteSource<TModule>(input.base)],
-  });
+  return createRouteManifest({ sources: input.sources });
 }
 
 function rendererForRoute<
@@ -77,11 +54,12 @@ async function createRenderInput<
   TContext,
   TModule,
   TData,
+  E extends Env,
 >(
   request: Request,
   route: FileRoute<TModule, TData>,
   params: RouteParams,
-  options: FileRouterOptions<TContext>,
+  options: FileRouterOptions<TContext, E>,
   generatedRoute?: GeneratedRoute<TContext, TModule, TData>
 ): Promise<RenderInput<TContext, TModule, TData>> {
   const context = options.createContext
@@ -190,7 +168,7 @@ export function mountFileRoutes<
   TData = unknown,
 >(
   app: Hono<E>,
-  options: MountFileRoutesOptions<TContext, TModule, TData>
+  options: MountFileRoutesOptions<TContext, TModule, TData, E>
 ): Hono<E> {
   const manifest = resolveManifest(options);
 
@@ -253,8 +231,14 @@ export function createFileRouter<
   TModule = unknown,
   TData = unknown,
 >(
-  options: CreateFileRouterOptions<TContext, TModule, TData>
+  options: CreateFileRouterOptions<TContext, TModule, TData, E>
 ): Hono<E> {
-  const app = new Hono<E>({ strict: options.strict });
+  const {
+    createContext: _createContext,
+    manifest: _manifest,
+    sources: _sources,
+    ...honoOptions
+  } = options;
+  const app = new Hono<E>(honoOptions);
   return mountFileRoutes(app, options);
 }

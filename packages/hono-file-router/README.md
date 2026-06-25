@@ -20,34 +20,38 @@ The implementation includes manifest creation, generated-route collision checks,
 
 ## Usage
 
-For Bun-hosted apps, `createFileRouter()` can discover `*.ts` route modules by
-convention. Each discovered module must default export a Hono router.
+Pass discovered route modules to `createFileRouter()`. Each Hono route module
+must default export a Hono router.
 
 ```ts
 import { Hono } from "hono";
 import { createFileRouter } from "@yoshikouki/hono-file-router";
+import { honoRoutes } from "@yoshikouki/hono-file-router/hono-routes";
 
 const fileBasedRoutes = createFileRouter({
-  base: "./routes",
+  sources: [
+    {
+      files: import.meta.glob("./**/*.ts", { base: "./routes" }),
+      routes: honoRoutes(),
+    },
+  ],
 });
 
 const app = new Hono();
 app.route("/", fileBasedRoutes);
 ```
 
-For Vite, Workers, and renderer integrations, pass explicit source files such as
-`import.meta.glob` results.
+For renderer integrations, add source files with a renderer.
 
 ```ts
 import { createFileRouter } from "@yoshikouki/hono-file-router";
-import { honoRoutes } from "@yoshikouki/hono-file-router/hono-routes";
+import { rscRenderer } from "@yoshikouki/hono-rsc-renderer";
 
 const fileBasedRoutes = createFileRouter({
-  base: "./routes",
   sources: [
     {
-      files: import.meta.glob("./routes/**/*.ts"),
-      routes: honoRoutes(),
+      files: import.meta.glob("./**/*.tsx", { base: "./routes" }),
+      renderer: rscRenderer(),
     },
   ],
 });

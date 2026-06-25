@@ -22,35 +22,6 @@ export function normalizePath(value: string): string {
   return value.replaceAll("\\", "/").replace(/\/+/g, "/");
 }
 
-export function ensureTrailingSlash(value: string): string {
-  return value.endsWith("/") ? value : `${value}/`;
-}
-
-function normalizeBase(base: string): string {
-  return trimSlashes(normalizePath(base).replace(/^\.\/+/, ""));
-}
-
-function stripBase(file: string, base: string): string {
-  const normalizedFile = normalizePath(file).replace(/^\.\/+/, "");
-  const normalizedBase = normalizeBase(base);
-  const prefix = `${normalizedBase}/`;
-
-  if (normalizedFile === normalizedBase) {
-    return "";
-  }
-
-  if (normalizedFile.startsWith(prefix)) {
-    return normalizedFile.slice(prefix.length);
-  }
-
-  const nestedIndex = normalizedFile.indexOf(`/${prefix}`);
-  if (nestedIndex !== -1) {
-    return normalizedFile.slice(nestedIndex + prefix.length + 1);
-  }
-
-  throw new Error(`Route file "${file}" is not under base "${base}".`);
-}
-
 export function dirname(path: string): string {
   const index = path.lastIndexOf("/");
   return index === -1 ? "" : path.slice(0, index);
@@ -96,12 +67,9 @@ function assertUniqueDynamicSegmentNames(segments: string[], file: string): void
   }
 }
 
-export function routeFileToManifestPath(
-  file: string,
-  options: { base: string }
-): RoutePathResult {
-  const withoutBase = stripBase(file, options.base);
-  const withoutExt = withoutBase.replace(RE_ROUTE_EXTENSION, "");
+export function routeFileToManifestPath(file: string): RoutePathResult {
+  const normalizedFile = trimSlashes(normalizePath(file).replace(/^\.\/+/, ""));
+  const withoutExt = normalizedFile.replace(RE_ROUTE_EXTENSION, "");
   const withoutIndex = withoutExt.replace(RE_TRAILING_INDEX, "");
   const segments = withoutIndex.split("/").filter(Boolean);
   assertUniqueDynamicSegmentNames(segments, file);
