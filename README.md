@@ -1,9 +1,13 @@
 # hono-kit
 
+[![CI](https://github.com/yoshikouki/hono-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/yoshikouki/hono-kit/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/yoshikouki/hono-kit/actions/workflows/codeql.yml/badge.svg)](https://github.com/yoshikouki/hono-kit/actions/workflows/codeql.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Experimental Hono routing and renderer packages.
 
-This repository publishes under the `@yoshikouki` npm scope and uses Bun for
-local development.
+This repository is prepared to publish packages under the `@yoshikouki` npm
+scope and uses Bun for local development.
 
 ## Packages
 
@@ -40,6 +44,14 @@ bun run typecheck
 bun run build
 bun run test
 ```
+
+## Security
+
+Dependency updates are tracked by Dependabot, CI verifies the Bun workspace on
+pushes and pull requests, and CodeQL scans TypeScript sources on code changes
+and a weekly schedule.
+
+Please report vulnerabilities through the process in [SECURITY.md](SECURITY.md).
 
 ## License
 
