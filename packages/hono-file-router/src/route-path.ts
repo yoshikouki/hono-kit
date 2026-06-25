@@ -1,0 +1,214 @@
+import type { RouteParams } from "./types";
+
+const RE_DYNAMIC_SEGMENT = /^\[([A-Za-z_$][\w$]*)\]$/;
+const RE_HONO_PARAM_NAME = /^[A-Za-z_$][\w$]*/;
+const RE_ROUTE_EXTENSION = /\.[^.]+$/;
+const RE_TRAILING_INDEX = /(^|\/)index$/;
+
+interface RoutePathEntry {
+  path: string;
+}
+
+export interface RoutePathResult {
+  path: string;
+  routeDirectory: string;
+}
+
+export function trimSlashes(value: string): string {
+  return value.replace(/^\/+|\/+$/g, "");
+}
+
+export function normalizePath(value: string): string {
+  return value.replaceAll("\\", "/").replace(/\/+/g, "/");
+}
+
+export function ensureTrailingSlash(value: string): string {
+  return value.endsWith("/") ? value : `${value}/`;
+}
+
+function normalizeBase(base: string): string {
+  return trimSlashes(normalizePath(base).replace(/^\.\/+/, ""));
+}
+
+function stripBase(file: string, base: string): string {
+  const normalizedFile = normalizePath(file).replace(/^\.\/+/, "");
+  const normalizedBase = normalizeBase(base);
+  const prefix = `${normalizedBase}/`;
+
+  if (normalizedFile === normalizedBase) {
+    return "";
+  }
+
+  if (normalizedFile.startsWith(prefix)) {
+    return normalizedFile.slice(prefix.length);
+  }
+
+  const nestedIndex = normalizedFile.indexOf(`/${prefix}`);
+  if (nestedIndex !== -1) {
+    return normalizedFile.slice(nestedIndex + prefix.length + 1);
+  }
+
+  throw new Error(`Route file "${file}" is not under base "${base}".`);
+}
+
+export function dirname(path: string): string {
+  const index = path.lastIndexOf("/");
+  return index === -1 ? "" : path.slice(0, index);
+}
+
+function dynamicSegmentName(segment: string, file: string): string | null {
+  const match = segment.match(RE_DYNAMIC_SEGMENT);
+  if (match) {
+    return match[1];
+  }
+
+  if (segment.includes("[") || segment.includes("]")) {
+    throw new Error(
+      `Unsupported dynamic route segment "${segment}" in ${file}. Only single segments like [id] are supported.`
+    );
+  }
+
+  return null;
+}
+
+function segmentToRoutePath(segment: string, file: string): string {
+  const paramName = dynamicSegmentName(segment, file);
+  if (paramName) {
+    return `:${paramName}`;
+  }
+
+  return segment;
+}
+
+function assertUniqueDynamicSegmentNames(segments: string[], file: string): void {
+  const seen = new Set<string>();
+  for (const segment of segments) {
+    const paramName = dynamicSegmentName(segment, file);
+    if (!paramName) {
+      continue;
+    }
+    if (seen.has(paramName)) {
+      throw new Error(
+        `Duplicate dynamic route param "${paramName}" in ${file}. Use unique names such as [postId].`
+      );
+    }
+    seen.add(paramName);
+  }
+}
+
+export function routeFileToManifestPath(
+  file: string,
+  options: { base: string }
+): RoutePathResult {
+  const withoutBase = stripBase(file, options.base);
+  const withoutExt = withoutBase.replace(RE_ROUTE_EXTENSION, "");
+  const withoutIndex = withoutExt.replace(RE_TRAILING_INDEX, "");
+  const segments = withoutIndex.split("/").filter(Boolean);
+  assertUniqueDynamicSegmentNames(segments, file);
+  const routeSegments = segments.map((segment) =>
+    segmentToRoutePath(segment, file)
+  );
+
+  return {
+    path: routeSegments.length > 0 ? `/${routeSegments.join("/")}` : "/",
+    routeDirectory: RE_TRAILING_INDEX.test(withoutExt)
+      ? withoutIndex
+      : dirname(withoutExt),
+  };
+}
+
+export function hasDynamicRouteSegments(path: string): boolean {
+  return path.split("/").some((segment) => segment.startsWith(":"));
+}
+
+export function routePathToShape(path: string): string {
+  const segments = path
+    .split("/")
+    .filter(Boolean)
+    .map((segment) => (segment.startsWith(":") ? ":param" : segment));
+
+  return segments.length > 0 ? `/${segments.join("/")}` : "/";
+}
+
+function pathSegments(path: string): string[] {
+  return path.split("/").filter(Boolean);
+}
+
+function isDynamicSegment(segment: string): boolean {
+  return segment.startsWith(":");
+}
+
+export function routePathsOverlap(a: string, b: string): boolean {
+  const aSegments = pathSegments(a);
+  const bSegments = pathSegments(b);
+  if (aSegments.length !== bSegments.length) {
+    return false;
+  }
+
+  return aSegments.every((segment, index) => {
+    const other = bSegments[index];
+    return (
+      segment === other || isDynamicSegment(segment) || isDynamicSegment(other)
+    );
+  });
+}
+
+function compareRouteSpecificity(a: string, b: string): number {
+  const aSegments = pathSegments(a);
+  const bSegments = pathSegments(b);
+  const length = Math.min(aSegments.length, bSegments.length);
+
+  for (let i = 0; i < length; i += 1) {
+    const aDynamic = isDynamicSegment(aSegments[i]);
+    const bDynamic = isDynamicSegment(bSegments[i]);
+    if (aDynamic !== bDynamic) {
+      return aDynamic ? 1 : -1;
+    }
+    if (!aDynamic && aSegments[i] !== bSegments[i]) {
+      return 0;
+    }
+  }
+
+  return bSegments.length - aSegments.length;
+}
+
+export function sortRoutesBySpecificity<T extends RoutePathEntry>(
+  routes: T[]
+): T[] {
+  return routes
+    .map((route, index) => ({ index, route }))
+    .sort((a, b) => {
+      const specificity = compareRouteSpecificity(a.route.path, b.route.path);
+      return specificity === 0 ? a.index - b.index : specificity;
+    })
+    .map(({ route }) => route);
+}
+
+function routeParamName(segment: string): string | null {
+  if (!segment.startsWith(":")) {
+    return null;
+  }
+
+  return segment.slice(1).match(RE_HONO_PARAM_NAME)?.[0] ?? null;
+}
+
+export function pathnameFromRoutePath(
+  routePath: string,
+  params: RouteParams
+): string {
+  const segments = routePath
+    .split("/")
+    .filter(Boolean)
+    .map((segment) => {
+      const paramName = routeParamName(segment);
+      if (!paramName) {
+        return segment;
+      }
+
+      return Object.hasOwn(params, paramName)
+        ? encodeURIComponent(params[paramName])
+        : segment;
+    });
+
+  return segments.length > 0 ? `/${segments.join("/")}` : "/";
+}

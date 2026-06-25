@@ -1,0 +1,260 @@
+import { Hono } from "hono";
+import type { Env, Handler } from "hono";
+import { createDefaultHonoRouteSource } from "./discovery/bun";
+import { createRouteManifest } from "./manifest";
+import { pathnameFromRoutePath } from "./route-path";
+import type {
+  CreateFileRouterOptions,
+  DefaultRouteManifestConfig,
+  FileRoute,
+  FileRouteRenderer,
+  FileRouterInput,
+  FileRouterOptions,
+  GeneratedRoute,
+  HonoLikeApp,
+  HonoRouteModule,
+  MountFileRoutesOptions,
+  RenderInput,
+  RouteManifest,
+  RouteManifestConfig,
+  RouteParams,
+} from "./types";
+
+function hasExplicitSources<
+  TContext,
+  TModule,
+  TData,
+>(
+  input:
+    | RouteManifestConfig<TContext, TModule, TData>
+    | DefaultRouteManifestConfig
+): input is RouteManifestConfig<TContext, TModule, TData> {
+  return Array.isArray(
+    (input as RouteManifestConfig<TContext, TModule, TData>).sources
+  );
+}
+
+function resolveManifest<
+  TContext,
+  TModule,
+  TData,
+>(
+  input: FileRouterInput<TContext, TModule, TData>
+): RouteManifest<TContext, TModule, TData> {
+  if ("manifest" in input) {
+    return input.manifest;
+  }
+
+  if (hasExplicitSources(input)) {
+    return createRouteManifest(input);
+  }
+
+  return createRouteManifest({
+    base: input.base,
+    sources: [createDefaultHonoRouteSource<TModule>(input.base)],
+  });
+}
+
+function rendererForRoute<
+  TContext,
+  TModule,
+  TData,
+>(
+  manifest: RouteManifest<TContext, TModule, TData>,
+  route: FileRoute<TModule, TData>
+): FileRouteRenderer<TContext, TModule, TData> {
+  const renderer = manifest.renderers.find(
+    (candidate) =>
+      candidate.name === route.rendererName || candidate.accepts(route)
+  );
+  if (!renderer) {
+    throw new Error(`No renderer registered for route "${route.path}".`);
+  }
+  return renderer;
+}
+
+async function createRenderInput<
+  TContext,
+  TModule,
+  TData,
+>(
+  request: Request,
+  route: FileRoute<TModule, TData>,
+  params: RouteParams,
+  options: FileRouterOptions<TContext>,
+  generatedRoute?: GeneratedRoute<TContext, TModule, TData>
+): Promise<RenderInput<TContext, TModule, TData>> {
+  const context = options.createContext
+    ? await options.createContext(request)
+    : (undefined as TContext);
+  return {
+    context,
+    generatedRoute,
+    params,
+    pathname: pathnameFromRoutePath(route.path, params),
+    request,
+    route,
+    url: new URL(request.url),
+  };
+}
+
+function registerGeneratedRoute<E extends Env>(
+  app: Hono<E>,
+  path: string,
+  method: GeneratedRoute["method"],
+  handler: Handler<E>
+): void {
+  switch (method) {
+    case "GET":
+      app.get(path, handler);
+      return;
+    case "POST":
+      app.post(path, handler);
+      return;
+    case "PUT":
+      app.put(path, handler);
+      return;
+    case "PATCH":
+      app.patch(path, handler);
+      return;
+    case "DELETE":
+      app.delete(path, handler);
+      return;
+    case "ALL":
+    case undefined:
+      app.all(path, handler);
+      return;
+  }
+}
+
+function honoAppFromModule(module: unknown): HonoLikeApp {
+  const candidate =
+    module && typeof module === "object" && "default" in module
+      ? (module as HonoRouteModule).default
+      : module;
+
+  if (!candidate || typeof (candidate as HonoLikeApp).fetch !== "function") {
+    throw new Error("Hono route modules must default export a Hono app.");
+  }
+
+  return candidate as HonoLikeApp;
+}
+
+function stripMountPath(pathname: string, mountPath: string): string {
+  if (mountPath === "/") {
+    return pathname;
+  }
+  if (pathname === mountPath) {
+    return "/";
+  }
+  if (pathname.startsWith(`${mountPath}/`)) {
+    return pathname.slice(mountPath.length) || "/";
+  }
+  return pathname;
+}
+
+function requestForMount(request: Request, mountPath: string): Request {
+  const url = new URL(request.url);
+  url.pathname = stripMountPath(url.pathname, mountPath);
+  return new Request(url, request);
+}
+
+function isRoutableHonoApp(
+  value: HonoLikeApp
+): value is HonoLikeApp & { routes: unknown[] } {
+  return Array.isArray((value as { routes?: unknown }).routes);
+}
+
+function mountedHonoApp<E extends Env>(
+  mountPath: string,
+  routeApp: HonoLikeApp
+): HonoLikeApp {
+  if (!isRoutableHonoApp(routeApp)) {
+    return {
+      fetch: (request, env) =>
+        routeApp.fetch(requestForMount(request, mountPath), env),
+    };
+  }
+
+  const mounted = new Hono<E>();
+  mounted.route(mountPath, routeApp as unknown as Hono<E>);
+  return {
+    fetch: (request, env) => mounted.fetch(request, env as E["Bindings"]),
+  };
+}
+
+export function mountFileRoutes<
+  E extends Env = Env,
+  TContext = unknown,
+  TModule = unknown,
+  TData = unknown,
+>(
+  app: Hono<E>,
+  options: MountFileRoutesOptions<TContext, TModule, TData>
+): Hono<E> {
+  const manifest = resolveManifest(options);
+
+  for (const route of manifest.routes) {
+    app.get(route.path, async (c) => {
+      const renderer = rendererForRoute(manifest, route);
+      return renderer.render(
+        await createRenderInput(c.req.raw, route, c.req.param(), options)
+      );
+    });
+  }
+
+  const routesById = new Map(manifest.routes.map((route) => [route.id, route]));
+  for (const generatedRoute of manifest.generatedRoutes) {
+    const owner = routesById.get(generatedRoute.owner);
+    if (!owner) {
+      throw new Error(
+        `Generated route "${generatedRoute.path}" references unknown owner "${generatedRoute.owner}".`
+      );
+    }
+    registerGeneratedRoute(
+      app,
+      generatedRoute.path,
+      generatedRoute.method ?? "GET",
+      async (c) =>
+        generatedRoute.render(
+          await createRenderInput(
+            c.req.raw,
+            owner,
+            c.req.param(),
+            options,
+            generatedRoute
+          )
+        )
+    );
+  }
+
+  for (const handlerRoute of manifest.handlers) {
+    let mountedApp: HonoLikeApp | undefined;
+    const handler: Handler<E> = async (c) => {
+      if (!mountedApp) {
+        const module = await handlerRoute.load();
+        const routeApp = honoAppFromModule(module);
+        mountedApp = mountedHonoApp(handlerRoute.path, routeApp);
+      }
+      return mountedApp.fetch(c.req.raw, c.env);
+    };
+    app.all(handlerRoute.path, handler);
+    if (handlerRoute.path !== "/") {
+      app.all(`${handlerRoute.path}/*`, handler);
+    }
+  }
+
+  return app;
+}
+
+export function createFileRouter<
+  E extends Env = Env,
+  TContext = unknown,
+  TModule = unknown,
+  TData = unknown,
+>(
+  options: CreateFileRouterOptions<TContext, TModule, TData>
+): Hono<E> {
+  const app = new Hono<E>({ strict: options.strict });
+  return mountFileRoutes(app, options);
+}

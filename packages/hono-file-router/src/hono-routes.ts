@@ -1,4 +1,4 @@
-import type { HonoRoutesProducer } from "./index";
+import type { HonoRoutesProducer } from "./types";
 
 export interface HonoRoutesOptions {
   name?: string;
