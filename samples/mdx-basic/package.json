@@ -1,0 +1,19 @@
+{
+  "name": "@yoshikouki/sample-mdx-basic",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "bun run typecheck",
+    "test": "bun test",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@yoshikouki/hono-file-router": "workspace:*",
+    "@yoshikouki/hono-mdx-renderer": "workspace:*",
+    "hono": "^4.12.27"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3"
+  }
+}

@@ -1,0 +1,64 @@
+{
+  "name": "@yoshikouki/hono-rsc-renderer",
+  "version": "0.0.0",
+  "description": "React Server Components renderer integration for Hono file routes",
+  "type": "module",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "bun build ./src/index.ts ./src/entry.ssr.ts ./src/entry.browser.ts --outdir ./dist --target browser --format esm --external react --external react-dom --external @vitejs/plugin-rsc --external @yoshikouki/hono-file-router && tsc -p tsconfig.json --emitDeclarationOnly",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "bun test"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./entry.browser": "./src/entry.browser.ts",
+    "./entry.ssr": "./src/entry.ssr.ts",
+    "./package.json": "./package.json"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org",
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      },
+      "./entry.browser": {
+        "types": "./dist/entry.browser.d.ts",
+        "import": "./dist/entry.browser.js"
+      },
+      "./entry.ssr": {
+        "types": "./dist/entry.ssr.d.ts",
+        "import": "./dist/entry.ssr.js"
+      },
+      "./package.json": "./package.json"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yoshikouki/hono-kit.git",
+    "directory": "packages/hono-rsc-renderer"
+  },
+  "homepage": "https://github.com/yoshikouki/hono-kit/tree/main/packages/hono-rsc-renderer",
+  "peerDependencies": {
+    "@vitejs/plugin-rsc": ">=0.5.0",
+    "@yoshikouki/hono-file-router": ">=0.0.0",
+    "hono": ">=4.0.0",
+    "react": ">=19.0.0",
+    "react-dom": ">=19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.15",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-rsc": "^0.5.25",
+    "@yoshikouki/hono-file-router": "workspace:*",
+    "hono": "^4.12.27",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "typescript": "^6.0.3",
+    "vite": "^8.1.0"
+  }
+}

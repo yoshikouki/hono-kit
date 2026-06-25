@@ -1,0 +1,31 @@
+{
+  "name": "hono-kit",
+  "version": "0.0.0",
+  "description": "Hono routing and renderer toolkit by yoshikouki",
+  "type": "module",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "samples/*"
+  ],
+  "scripts": {
+    "build": "bun run build:packages && bun run build:samples",
+    "build:packages": "bun run --filter '@yoshikouki/hono-*' build",
+    "build:samples": "bun run --filter '@yoshikouki/sample-*' build",
+    "typecheck": "bun run typecheck:packages && bun run typecheck:samples",
+    "typecheck:packages": "bun run --filter '@yoshikouki/hono-*' typecheck",
+    "typecheck:samples": "bun run --filter '@yoshikouki/sample-*' typecheck",
+    "test": "bun run test:packages && bun run test:samples",
+    "test:packages": "bun run --filter '@yoshikouki/hono-*' test",
+    "test:samples": "bun run --filter '@yoshikouki/sample-*' test"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yoshikouki/hono-kit.git"
+  },
+  "packageManager": "bun@1.3.12",
+  "devDependencies": {
+    "typescript": "^6.0.3"
+  }
+}

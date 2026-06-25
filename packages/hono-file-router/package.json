@@ -1,0 +1,48 @@
+{
+  "name": "@yoshikouki/hono-file-router",
+  "version": "0.0.0",
+  "description": "File-based routing core for Hono",
+  "type": "module",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "bun build ./src/index.ts ./src/hono-routes.ts --outdir ./dist --target bun --format esm --external hono && tsc -p tsconfig.json --emitDeclarationOnly",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "bun test"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./hono-routes": "./src/hono-routes.ts",
+    "./package.json": "./package.json"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org",
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      },
+      "./hono-routes": {
+        "types": "./dist/hono-routes.d.ts",
+        "import": "./dist/hono-routes.js"
+      },
+      "./package.json": "./package.json"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yoshikouki/hono-kit.git",
+    "directory": "packages/hono-file-router"
+  },
+  "homepage": "https://github.com/yoshikouki/hono-kit/tree/main/packages/hono-file-router",
+  "peerDependencies": {
+    "hono": ">=4.0.0"
+  },
+  "devDependencies": {
+    "hono": "^4.12.27",
+    "typescript": "^6.0.3"
+  }
+}

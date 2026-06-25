@@ -1,0 +1,45 @@
+{
+  "name": "@yoshikouki/hono-mdx-renderer",
+  "version": "0.0.0",
+  "description": "Markdown and MDX renderer integration for Hono file routes",
+  "type": "module",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "bun build ./src/index.ts --outdir ./dist --target bun --format esm --external @yoshikouki/hono-file-router && tsc -p tsconfig.json --emitDeclarationOnly",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "bun test"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./package.json": "./package.json"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org",
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      },
+      "./package.json": "./package.json"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yoshikouki/hono-kit.git",
+    "directory": "packages/hono-mdx-renderer"
+  },
+  "homepage": "https://github.com/yoshikouki/hono-kit/tree/main/packages/hono-mdx-renderer",
+  "peerDependencies": {
+    "@yoshikouki/hono-file-router": ">=0.0.0",
+    "hono": ">=4.0.0"
+  },
+  "devDependencies": {
+    "@yoshikouki/hono-file-router": "workspace:*",
+    "hono": "^4.12.27",
+    "typescript": "^6.0.3"
+  }
+}

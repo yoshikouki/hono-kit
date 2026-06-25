@@ -1,0 +1,25 @@
+{
+  "name": "@yoshikouki/sample-rsc-basic",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "test": "bun run build && bun test",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@yoshikouki/hono-file-router": "workspace:*",
+    "@yoshikouki/hono-rsc-renderer": "workspace:*",
+    "hono": "^4.12.27",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.15",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-rsc": "^0.5.27",
+    "typescript": "^6.0.3",
+    "vite": "^8.1.0"
+  }
+}
