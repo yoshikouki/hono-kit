@@ -113,25 +113,25 @@ export interface HonoRoute<TModule = unknown> {
   routesName: string;
 }
 
-export type RendererSource<
+export interface RendererSource<
   TContext = unknown,
   TModule = unknown,
   TData = unknown,
-> = {
+> {
   dynamicRoutes?: boolean;
   files: GlobFiles<TModule>;
   kind?: FileRouteKind;
   renderer: FileRouteRenderer<TContext, TModule, TData>;
   routes?: never;
-};
+}
 
-export type HonoRoutesSource<TModule = unknown> = {
+export interface HonoRoutesSource<TModule = unknown> {
   dynamicRoutes?: boolean;
   files: GlobFiles<TModule>;
   kind?: FileRouteKind;
   renderer?: never;
   routes: HonoRoutesProducer;
-};
+}
 
 export type RouteSource<
   TContext = unknown,
@@ -172,8 +172,8 @@ export interface RouteManifest<
 
 export type FileRouterInput<
   TContext = unknown,
-  TModule = unknown,
-  TData = unknown,
+  _TModule = unknown,
+  _TData = unknown,
   E extends Env = Env,
 > = FileRouterOptions<TContext, E> &
   (

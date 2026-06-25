@@ -100,6 +100,12 @@ function registerGeneratedRoute<E extends Env>(
     case undefined:
       app.all(path, handler);
       return;
+    default: {
+      const unsupportedMethod: never = method;
+      throw new Error(
+        `Unsupported generated route method: ${unsupportedMethod}`
+      );
+    }
   }
 }
 

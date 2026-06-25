@@ -9,6 +9,8 @@
     "samples/*"
   ],
   "scripts": {
+    "lint": "ultracite check",
+    "lint:fix": "ultracite fix",
     "build": "bun run build:packages && bun run build:samples",
     "build:packages": "bun run --filter '@yoshikouki/hono-*' build",
     "build:samples": "bun run --filter '@yoshikouki/sample-*' build",
@@ -26,6 +28,8 @@
   },
   "packageManager": "bun@1.3.12",
   "devDependencies": {
-    "typescript": "^6.0.3"
+    "@biomejs/biome": "2.4.16",
+    "typescript": "^6.0.3",
+    "ultracite": "7.8.3"
   }
 }

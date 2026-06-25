@@ -26,6 +26,7 @@ export interface MdxPageProps<TContext = unknown> {
 
 const HTML_CONTENT_TYPE = "text/html;charset=utf-8";
 const MARKDOWN_CONTENT_TYPE = "text/markdown;charset=utf-8";
+const RE_LEADING_NEWLINE = /^\n/;
 
 function escapeHtml(value: string): string {
   return value
@@ -44,7 +45,9 @@ function stripFrontmatter(markdown: string): string {
     return markdown;
   }
   const end = markdown.indexOf("\n---", 4);
-  return end === -1 ? markdown : markdown.slice(end + 4).replace(/^\n/, "");
+  return end === -1
+    ? markdown
+    : markdown.slice(end + 4).replace(RE_LEADING_NEWLINE, "");
 }
 
 async function loadMarkdown<TContext>(

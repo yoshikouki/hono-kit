@@ -2,6 +2,7 @@ import type { RouteParams } from "./types";
 
 const RE_DYNAMIC_SEGMENT = /^\[([A-Za-z_$][\w$]*)\]$/;
 const RE_HONO_PARAM_NAME = /^[A-Za-z_$][\w$]*/;
+const RE_LEADING_DOT_SLASH = /^\.\/+/;
 const RE_ROUTE_EXTENSION = /\.[^.]+$/;
 const RE_TRAILING_INDEX = /(^|\/)index$/;
 
@@ -68,7 +69,9 @@ function assertUniqueDynamicSegmentNames(segments: string[], file: string): void
 }
 
 export function routeFileToManifestPath(file: string): RoutePathResult {
-  const normalizedFile = trimSlashes(normalizePath(file).replace(/^\.\/+/, ""));
+  const normalizedFile = trimSlashes(
+    normalizePath(file).replace(RE_LEADING_DOT_SLASH, "")
+  );
   const withoutExt = normalizedFile.replace(RE_ROUTE_EXTENSION, "");
   const withoutIndex = withoutExt.replace(RE_TRAILING_INDEX, "");
   const segments = withoutIndex.split("/").filter(Boolean);

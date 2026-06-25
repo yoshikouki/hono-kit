@@ -40,6 +40,7 @@ the current tests and samples.
 
 ```sh
 bun install
+bun run lint
 bun run typecheck
 bun run build
 bun run test
