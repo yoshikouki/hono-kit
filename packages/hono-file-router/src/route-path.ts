@@ -29,15 +29,19 @@ export function dirname(path: string): string {
   return index === -1 ? "" : path.slice(0, index);
 }
 
+function firstCapture(match: RegExpMatchArray | null): string | null {
+  return match?.[1] ?? null;
+}
+
 function dynamicSegmentName(segment: string, file: string): string | null {
-  const catchAllMatch = segment.match(RE_CATCH_ALL_SEGMENT);
-  if (catchAllMatch) {
-    return catchAllMatch[1];
+  const catchAllName = firstCapture(segment.match(RE_CATCH_ALL_SEGMENT));
+  if (catchAllName) {
+    return catchAllName;
   }
 
-  const match = segment.match(RE_DYNAMIC_SEGMENT);
-  if (match) {
-    return match[1];
+  const dynamicName = firstCapture(segment.match(RE_DYNAMIC_SEGMENT));
+  if (dynamicName) {
+    return dynamicName;
   }
 
   if (segment.includes("[") || segment.includes("]")) {
@@ -54,9 +58,9 @@ function segmentToRoutePath(segment: string, file: string): string {
     return "";
   }
 
-  const catchAllMatch = segment.match(RE_CATCH_ALL_SEGMENT);
-  if (catchAllMatch) {
-    return `:${catchAllMatch[1]}{.+}`;
+  const catchAllName = firstCapture(segment.match(RE_CATCH_ALL_SEGMENT));
+  if (catchAllName) {
+    return `:${catchAllName}{.+}`;
   }
 
   const paramName = dynamicSegmentName(segment, file);
@@ -142,6 +146,9 @@ function routePrefixesCompatible(aSegments: string[], bSegments: string[]): bool
   for (let i = 0; i < length; i += 1) {
     const a = aSegments[i];
     const b = bSegments[i];
+    if (a === undefined || b === undefined) {
+      return true;
+    }
     if (a !== b && !(isDynamicSegment(a) || isDynamicSegment(b))) {
       return false;
     }
@@ -158,6 +165,9 @@ export function routePathsOverlap(a: string, b: string): boolean {
 
   return aSegments.every((segment, index) => {
     const other = bSegments[index];
+    if (other === undefined) {
+      return false;
+    }
     return (
       segment === other || isDynamicSegment(segment) || isDynamicSegment(other)
     );
@@ -186,8 +196,13 @@ function compareRouteSpecificity(a: string, b: string): number {
   const length = Math.min(aSegments.length, bSegments.length);
 
   for (let i = 0; i < length; i += 1) {
-    const aDynamic = isDynamicSegment(aSegments[i]);
-    const bDynamic = isDynamicSegment(bSegments[i]);
+    const aSegment = aSegments[i];
+    const bSegment = bSegments[i];
+    if (aSegment === undefined || bSegment === undefined) {
+      continue;
+    }
+    const aDynamic = isDynamicSegment(aSegment);
+    const bDynamic = isDynamicSegment(bSegment);
     if (aDynamic !== bDynamic) {
       return aDynamic ? 1 : -1;
     }
@@ -229,9 +244,8 @@ export function pathnameFromRoutePath(
         return segment;
       }
 
-      return Object.hasOwn(params, paramName)
-        ? encodeURIComponent(params[paramName])
-        : segment;
+      const value = params[paramName];
+      return value === undefined ? segment : encodeURIComponent(value);
     });
 
   return segments.length > 0 ? `/${segments.join("/")}` : "/";
