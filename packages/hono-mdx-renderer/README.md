@@ -2,10 +2,17 @@
 
 Markdown and MDX route handlers for Hono apps.
 
+## Contract
+
 This package stays on the Hono side of the boundary. It adapts app-provided
 Markdown strings and compiled MDX route modules into `Handler`s, while the
 application keeps control over route registration, source loading, compilation,
 layout, and authorization.
+
+The package owns Markdown and MDX Hono handler adapters, frontmatter stripping,
+raw Markdown responses, and app-provided rendering hooks. It does not discover
+files, compile MDX, resolve layouts, create sibling routes automatically, or own
+middleware policy.
 
 ## Markdown
 
@@ -70,9 +77,7 @@ a real MDX compiler or component runtime.
 
 ## Boundary
 
-The package does not discover files, compile MDX, resolve layouts, create raw
-Markdown sibling routes automatically, or own middleware policy. Callers choose
-the Hono path and method explicitly:
+Callers choose the Hono path and method explicitly:
 
 ```ts
 app.get("/docs/readme", mdRenderer(readme));

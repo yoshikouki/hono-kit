@@ -29,14 +29,22 @@ scope and uses Bun for local development.
 
 ## Design
 
-The router package is the source of truth for route discovery, manifest
-validation, route ordering, generated-route collision checks, and Hono mounting.
-Renderer packages keep presentation and transport details out of the route core;
-RSC is exposed as Hono middleware while Markdown/MDX are ordinary Hono route
-handlers.
+The router package is the source of truth for route source contracts, path
+normalization, manifests, route ordering, generated-route collision checks,
+directory metadata, and Hono mounting. File discovery stays with applications
+and build tools. Renderer packages keep presentation and transport details out
+of the route core; RSC is exposed as Hono middleware while Markdown/MDX are
+ordinary Hono route handlers.
 
-See [docs/contracts.md](docs/contracts.md) for the public contracts verified by
-the current tests and samples.
+Package contracts live with the package that owns them:
+
+- [`packages/hono-file-router`](packages/hono-file-router) documents route
+  source contracts, path conventions, manifests, directory helpers, and Hono
+  mounting.
+- [`packages/hono-rsc-renderer`](packages/hono-rsc-renderer) documents Hono RSC
+  renderer middleware, same-path Flight negotiation, and Vite RSC setup.
+- [`packages/hono-mdx-renderer`](packages/hono-mdx-renderer) documents Markdown
+  and MDX Hono route handlers.
 
 ## Development
 

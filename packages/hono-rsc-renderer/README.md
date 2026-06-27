@@ -2,10 +2,17 @@
 
 React Server Components renderer middleware for Hono.
 
+## Contract
+
 This package follows Hono's built-in JSX Renderer shape: install middleware on a
 route group, then return `c.render()` from ordinary Hono route handlers. Hono
 keeps ownership of the request lifecycle, middleware, authentication,
 authorization, params, variables, bindings, redirects, and errors.
+
+The package owns Hono RSC renderer middleware, same-path Flight negotiation, RSC
+response headers, and Vite RSC integration hints. It does not own route
+discovery, authorization policy, Markdown source handling, or file-router
+conventions.
 
 ```tsx
 import { Hono } from "hono";
