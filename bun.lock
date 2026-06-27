@@ -25,12 +25,10 @@
       "name": "@yoshikouki/hono-mdx-renderer",
       "version": "0.0.0",
       "devDependencies": {
-        "@yoshikouki/hono-file-router": "workspace:*",
         "hono": "^4.12.27",
         "typescript": "^6.0.3",
       },
       "peerDependencies": {
-        "@yoshikouki/hono-file-router": ">=0.0.0",
         "hono": ">=4.0.0",
       },
     },
@@ -84,11 +82,10 @@
         "vite": "^8.1.0",
       },
     },
-    "samples/mdx-file-router-basic": {
-      "name": "@yoshikouki/sample-mdx-file-router-basic",
+    "samples/mdx-basic": {
+      "name": "@yoshikouki/sample-mdx-basic",
       "version": "0.0.0",
       "dependencies": {
-        "@yoshikouki/hono-file-router": "workspace:*",
         "@yoshikouki/hono-mdx-renderer": "workspace:*",
         "hono": "^4.12.27",
       },
@@ -201,7 +198,7 @@
 
     "@yoshikouki/sample-full-stack-routing": ["@yoshikouki/sample-full-stack-routing@workspace:samples/full-stack-routing"],
 
-    "@yoshikouki/sample-mdx-file-router-basic": ["@yoshikouki/sample-mdx-file-router-basic@workspace:samples/mdx-file-router-basic"],
+    "@yoshikouki/sample-mdx-basic": ["@yoshikouki/sample-mdx-basic@workspace:samples/mdx-basic"],
 
     "@yoshikouki/sample-rsc-vite-basic": ["@yoshikouki/sample-rsc-vite-basic@workspace:samples/rsc-vite-basic"],
 

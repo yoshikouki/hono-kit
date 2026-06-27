@@ -1,57 +1,59 @@
-import type {
-  FileRoute,
-  FileRouteRenderer,
-  RenderInput,
-} from "@yoshikouki/hono-file-router";
+import type { Context, Env, Handler } from "hono";
 
-export interface MarkdownRendererOptions<TContext = unknown> {
-  htmlContentType?: string;
-  rawMarkdown?: boolean;
-  rawMarkdownPath?: (path: string) => string;
-  renderMarkdown?: RenderMarkdown<TContext>;
-}
-
-export interface MdxRendererOptions<TContext = unknown> {
-  htmlContentType?: string;
-  renderMdx?: RenderMdx<TContext>;
-}
-
-export interface MdxRouteModule<TContext = unknown> {
-  default: (
-    props: MdxPageProps<TContext>
-  ) => unknown | Promise<unknown>;
-}
-
-export interface MdxPageProps<TContext = unknown> {
-  context: TContext;
-  params: Record<string, string>;
-  request: Request;
-}
+export type RouteSource<T> = T | (() => T | Promise<T>);
+export type RenderResult = Response | string | Promise<Response | string>;
 
 export interface MarkdownDocument {
   content: string;
   source: string;
 }
 
-export interface MarkdownRenderInput<TContext = unknown>
-  extends RenderInput<TContext, string> {
+export interface MarkdownRenderInput<E extends Env = Env> {
+  c: Context<E>;
   markdown: MarkdownDocument;
+  params: Record<string, string>;
+  request: Request;
 }
 
-export interface MdxRenderInput<TContext = unknown>
-  extends RenderInput<TContext, MdxRouteModule<TContext>> {
+export interface MdxPageProps<E extends Env = Env> {
+  c: Context<E>;
+  params: Record<string, string>;
+  request: Request;
+}
+
+export interface MdxRouteModule<E extends Env = Env> {
+  default: (props: MdxPageProps<E>) => unknown | Promise<unknown>;
+}
+
+export interface MdxRenderInput<E extends Env = Env> {
+  c: Context<E>;
+  module: MdxRouteModule<E>;
+  params: Record<string, string>;
   rendered: unknown;
+  request: Request;
 }
 
-export type RenderMarkdown<TContext = unknown> = (
-  input: MarkdownRenderInput<TContext>
+export interface MarkdownRendererOptions<E extends Env = Env> {
+  htmlContentType?: string;
+  renderMarkdown?: RenderMarkdown<E>;
+}
+
+export interface RawMarkdownRendererOptions {
+  contentType?: string;
+}
+
+export interface MdxRendererOptions<E extends Env = Env> {
+  htmlContentType?: string;
+  renderMdx?: RenderMdx<E>;
+}
+
+export type RenderMarkdown<E extends Env = Env> = (
+  input: MarkdownRenderInput<E>
 ) => RenderResult;
 
-export type RenderMdx<TContext = unknown> = (
-  input: MdxRenderInput<TContext>
+export type RenderMdx<E extends Env = Env> = (
+  input: MdxRenderInput<E>
 ) => RenderResult;
-
-type RenderResult = Response | string | Promise<Response | string>;
 
 const HTML_CONTENT_TYPE = "text/html;charset=utf-8";
 const MARKDOWN_CONTENT_TYPE = "text/markdown;charset=utf-8";
@@ -65,8 +67,10 @@ function escapeHtml(value: string): string {
     .replaceAll('"', "&quot;");
 }
 
-function defaultMarkdownPath(path: string): string {
-  return path === "/" ? "/index.md" : `${path}.md`;
+async function resolveSource<T>(source: RouteSource<T>): Promise<T> {
+  return typeof source === "function"
+    ? await (source as () => T | Promise<T>)()
+    : source;
 }
 
 function stripFrontmatter(markdown: string): string {
@@ -87,46 +91,18 @@ async function responseFromRendered(
   contentType: string
 ): Promise<Response> {
   const resolved = await rendered;
-  if (resolved instanceof Response) {
-    return resolved;
-  }
-  return htmlResponse(resolved, contentType);
+  return resolved instanceof Response
+    ? resolved
+    : htmlResponse(resolved, contentType);
 }
 
-async function loadMarkdown<TContext>(
-  input: RenderInput<TContext, string>
-): Promise<string> {
-  const loaded = await input.route.load?.();
-  if (typeof loaded !== "string") {
-    throw new Error(`${input.route.file} must load raw Markdown content.`);
-  }
-  return loaded;
-}
-
-function defaultRenderMarkdown<TContext>(
-  input: MarkdownRenderInput<TContext>
+function defaultRenderMarkdown<E extends Env>(
+  input: MarkdownRenderInput<E>
 ): string {
   return `<!doctype html><html><body><pre>${escapeHtml(input.markdown.content)}</pre></body></html>`;
 }
 
-async function renderMarkdown<TContext>(
-  input: RenderInput<TContext, string>,
-  options: Required<
-    Pick<MarkdownRendererOptions<TContext>, "htmlContentType" | "renderMarkdown">
-  >
-): Promise<Response> {
-  const source = await loadMarkdown(input);
-  const markdown = {
-    content: stripFrontmatter(source),
-    source,
-  };
-  return responseFromRendered(
-    options.renderMarkdown({ ...input, markdown }),
-    options.htmlContentType
-  );
-}
-
-function defaultRenderMdx<TContext>(input: MdxRenderInput<TContext>): string {
+function defaultRenderMdx<E extends Env>(input: MdxRenderInput<E>): string {
   const body =
     typeof input.rendered === "string"
       ? input.rendered
@@ -135,87 +111,79 @@ function defaultRenderMdx<TContext>(input: MdxRenderInput<TContext>): string {
   return `<!doctype html><html><body>${body}</body></html>`;
 }
 
-async function renderMdxModule<TContext>(
-  input: RenderInput<TContext, MdxRouteModule<TContext>>,
-  options: Required<Pick<MdxRendererOptions<TContext>, "htmlContentType" | "renderMdx">>
-): Promise<Response> {
-  const module = (await input.route.load?.()) as
-    | MdxRouteModule<TContext>
-    | undefined;
-  if (!module || typeof module.default !== "function") {
-    throw new Error(`${input.route.file} must default export an MDX function.`);
+async function loadMarkdown(source: RouteSource<string>): Promise<string> {
+  const loaded = await resolveSource(source);
+  if (typeof loaded !== "string") {
+    throw new Error("Markdown routes must load raw Markdown content.");
   }
-  const rendered = await module.default({
-    context: input.context,
-    params: input.params,
-    request: input.request,
-  });
-
-  return responseFromRendered(
-    options.renderMdx({ ...input, rendered }),
-    options.htmlContentType
-  );
+  return loaded;
 }
 
-export function mdRenderer<TContext = unknown>(
-  options: MarkdownRendererOptions<TContext> = {}
-): FileRouteRenderer<TContext> {
-  const resolvedOptions = {
-    htmlContentType: options.htmlContentType ?? HTML_CONTENT_TYPE,
-    rawMarkdownPath: options.rawMarkdownPath ?? defaultMarkdownPath,
-    renderMarkdown: options.renderMarkdown ?? defaultRenderMarkdown,
-  };
+export function mdRenderer<E extends Env = Env>(
+  source: RouteSource<string>,
+  options: MarkdownRendererOptions<E> = {}
+): Handler<E> {
+  const htmlContentType = options.htmlContentType ?? HTML_CONTENT_TYPE;
+  const renderMarkdown = options.renderMarkdown ?? defaultRenderMarkdown;
 
-  return {
-    name: "md",
-    accepts(route: FileRoute) {
-      return route.file.endsWith(".md");
-    },
-    generatedRoutes(route) {
-      if (options.rawMarkdown === false) {
-        return [];
-      }
-      return [
-        {
-          kind: "markdown",
-          method: "GET",
-          owner: route.id,
-          path: resolvedOptions.rawMarkdownPath(route.path),
-          async render(input) {
-            return new Response(
-              await loadMarkdown(input as RenderInput<TContext, string>),
-              {
-                headers: { "Content-Type": MARKDOWN_CONTENT_TYPE },
-              }
-            );
-          },
-        },
-      ];
-    },
-    render(input) {
-      return renderMarkdown(input as RenderInput<TContext, string>, resolvedOptions);
-    },
+  return async (c) => {
+    const markdownSource = await loadMarkdown(source);
+    const markdown = {
+      content: stripFrontmatter(markdownSource),
+      source: markdownSource,
+    };
+
+    return responseFromRendered(
+      renderMarkdown({
+        c,
+        markdown,
+        params: c.req.param(),
+        request: c.req.raw,
+      }),
+      htmlContentType
+    );
   };
 }
 
-export function mdxRenderer<TContext = unknown>(
-  options: MdxRendererOptions<TContext> = {}
-): FileRouteRenderer<TContext> {
-  const resolvedOptions = {
-    htmlContentType: options.htmlContentType ?? HTML_CONTENT_TYPE,
-    renderMdx: options.renderMdx ?? defaultRenderMdx,
-  };
+export function rawMarkdownRenderer<E extends Env = Env>(
+  source: RouteSource<string>,
+  options: RawMarkdownRendererOptions = {}
+): Handler<E> {
+  const contentType = options.contentType ?? MARKDOWN_CONTENT_TYPE;
 
-  return {
-    name: "mdx",
-    accepts(route: FileRoute) {
-      return route.file.endsWith(".mdx");
-    },
-    render(input) {
-      return renderMdxModule(
-        input as RenderInput<TContext, MdxRouteModule<TContext>>,
-        resolvedOptions
-      );
-    },
+  return async () =>
+    new Response(await loadMarkdown(source), {
+      headers: { "Content-Type": contentType },
+    });
+}
+
+export function mdxRenderer<E extends Env = Env>(
+  source: RouteSource<MdxRouteModule<E>>,
+  options: MdxRendererOptions<E> = {}
+): Handler<E> {
+  const htmlContentType = options.htmlContentType ?? HTML_CONTENT_TYPE;
+  const renderMdx = options.renderMdx ?? defaultRenderMdx;
+
+  return async (c) => {
+    const module = await resolveSource(source);
+    if (!module || typeof module.default !== "function") {
+      throw new Error("MDX routes must load a module with a default function.");
+    }
+
+    const props = {
+      c,
+      params: c.req.param(),
+      request: c.req.raw,
+    };
+    const rendered = await module.default(props);
+
+    return responseFromRendered(
+      renderMdx({
+        ...props,
+        module,
+        rendered,
+      }),
+      htmlContentType
+    );
   };
 }

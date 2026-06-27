@@ -41,17 +41,26 @@ const app = new Hono();
 app.route("/", fileBasedRoutes);
 ```
 
-For renderer integrations, add source files with a renderer.
+Custom file-route renderers can adapt non-Hono route modules without teaching
+the router core about that module format.
 
 ```ts
 import { createFileRouter } from "@yoshikouki/hono-file-router";
-import { mdxRenderer } from "@yoshikouki/hono-mdx-renderer";
+
+const jsonRenderer = {
+  name: "json",
+  accepts: (route) => route.file.endsWith(".json"),
+  async render({ route }) {
+    const source = await route.load?.();
+    return Response.json(source);
+  },
+};
 
 const fileBasedRoutes = createFileRouter({
   sources: [
     {
-      files: import.meta.glob("./**/*.mdx", { base: "./routes/content" }),
-      renderer: mdxRenderer(),
+      files: import.meta.glob("./**/*.json", { base: "./routes/data" }),
+      renderer: jsonRenderer,
     },
   ],
 });

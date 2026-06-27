@@ -2,10 +2,10 @@
 
 This repository keeps the file router as the source of truth for route
 discovery, route ordering, generated-route collision checks, and Hono mounting.
-File-route renderer packages may declare generated routes, but they must not
-teach the core router about Markdown or MDX semantics. RSC is exposed as Hono
-middleware instead of a file-route renderer, so the router core does not own RSC
-transport semantics.
+Custom file-route renderers may declare generated routes, but they must not
+teach the core router about domain-specific formats. RSC is exposed as Hono
+middleware, and Markdown/MDX are exposed as Hono route handlers, so the router
+core does not own presentation or transport semantics.
 
 ## Package Boundaries
 
@@ -23,10 +23,11 @@ transport semantics.
   avoids: route discovery, authorization policy, Markdown source handling
 
 @yoshikouki/hono-mdx-renderer
-  owns: .md/.mdx adaptation, frontmatter, optional raw Markdown responses,
-        Markdown/MDX page rendering hooks
-  knows: file-router adapter and renderer contracts
-  avoids: Hono route registration order, MDX compilation, layout policy,
+  owns: Hono route handlers for Markdown and MDX, frontmatter stripping,
+        optional raw Markdown responses, Markdown/MDX page rendering hooks
+  knows: Hono handler contract, Hono context, raw Markdown strings,
+        app-provided MDX route modules
+  avoids: route discovery, MDX compilation, layout policy, authorization policy,
         RSC transport details
 ```
 
@@ -52,39 +53,25 @@ const app = new Hono();
 app.route("/", fileBasedRoutes);
 ```
 
-Markdown and MDX renderer integrations use the same source shape:
+Markdown and MDX are ordinary Hono route handlers. The application chooses the
+route path, source-loading strategy, raw Markdown endpoint, and rendering hooks:
 
 ```ts
 import { Hono } from "hono";
-import { createFileRouter } from "@yoshikouki/hono-file-router";
-import { honoRoutes } from "@yoshikouki/hono-file-router/hono-routes";
-import { mdRenderer } from "@yoshikouki/hono-mdx-renderer";
-import { mdxRenderer } from "@yoshikouki/hono-mdx-renderer";
-
-const fileBasedRoutes = createFileRouter({
-  sources: [
-    {
-      files: import.meta.glob("./api/**/*.ts", { base: "./routes" }),
-      routes: honoRoutes(),
-    },
-    {
-      files: import.meta.glob("./**/*.md", {
-        base: "./routes/content",
-        query: "?raw",
-        import: "default",
-        eager: true,
-      }),
-      renderer: mdRenderer(),
-    },
-    {
-      files: import.meta.glob("./**/*.mdx", { base: "./routes/content" }),
-      renderer: mdxRenderer(),
-    },
-  ],
-});
+import {
+  mdRenderer,
+  mdxRenderer,
+  rawMarkdownRenderer,
+} from "@yoshikouki/hono-mdx-renderer";
+import guideMdx from "./routes/content/docs/guide.mdx?raw";
+import readmeMd from "./routes/content/docs/readme.md?raw";
+import { compileMdxRoute } from "./loaders";
 
 const app = new Hono();
-app.route("/", fileBasedRoutes);
+
+app.get("/docs/readme", mdRenderer(readmeMd));
+app.get("/docs/readme.md", rawMarkdownRenderer(readmeMd));
+app.get("/docs/guide", mdxRenderer(() => compileMdxRoute(guideMdx)));
 ```
 
 RSC uses Hono's renderer middleware shape instead of the file-route renderer
@@ -162,9 +149,9 @@ stable `id`, source `file`, Hono-compatible `path`, source `kind`, optional
 `URL`, and user-provided request `context`.
 
 `FileRouteRenderer` renders primary routes and may declare `GeneratedRoute`
-entries for a `FileRoute`. Markdown can use this for `.md` raw-content routes.
-The file router collects these declarations and rejects collisions before
-mounting anything.
+entries for a `FileRoute`. Custom renderers can use this for package-owned
+secondary endpoints. The file router collects these declarations and rejects
+collisions before mounting anything.
 
 `GeneratedRoute` is explicit instead of hard-coded. It has an owner route id,
 method, path, optional kind, and a render function. The core router treats it as
@@ -248,10 +235,10 @@ export default defineConfig({
 });
 ```
 
-`mdRenderer()` handles raw `.md` sources. It expects `import.meta.glob` to provide
-raw Markdown strings, usually with `{ query: "?raw", import: "default", eager:
-true }`. The primary route renders HTML through a package default or app-provided
-`renderMarkdown` hook, and the generated `.md` route returns the raw Markdown.
+`mdRenderer(source)` handles raw Markdown strings as a Hono route handler. The
+source may be a string or a function that returns a string. The route renders
+HTML through a package default or app-provided `renderMarkdown` hook. Raw
+Markdown routes are explicit Hono routes through `rawMarkdownRenderer(source)`.
 
 ```md
 ---
@@ -261,15 +248,25 @@ title: Readme
 # Readme
 ```
 
-`mdxRenderer()` handles `.mdx` sources. It expects a default export function
-that receives `{ context, params, request }` from the file-route renderer
-contract. The renderer does not compile MDX itself; callers provide bundle-visible
-modules and can customize response generation through `renderMdx`.
+```ts
+app.get("/docs/readme", mdRenderer(readmeMd));
+app.get("/docs/readme.md", rawMarkdownRenderer(readmeMd));
+```
+
+`mdxRenderer(source)` handles app-provided MDX route modules as a Hono route
+handler. It expects a default export function that receives `{ c, params,
+request }`. The renderer does not compile MDX itself; callers provide
+bundle-visible modules and can customize response generation through
+`renderMdx`.
 
 ```mdx
-export default function Page() {
+export default function Page({ params }) {
   return "<article>Guide</article>";
 }
+```
+
+```ts
+app.get("/docs/guide", mdxRenderer(() => loadGuideMdx()));
 ```
 
 `honoRoutes()` handles plain `.ts` route modules. These modules default export a
@@ -340,7 +337,7 @@ bun run build
 
 The checked surface includes public manifest types, pure route path tests,
 generated route collision checks, `mountFileRoutes`, `createFileRouter`,
-explicit `.ts` Hono route module sources, Markdown/MDX file-route renderers,
+explicit `.ts` Hono route module sources, Markdown/MDX Hono route handlers,
 the RSC Hono renderer middleware,
-`samples/file-router-basic`, `samples/mdx-file-router-basic`,
+`samples/file-router-basic`, `samples/mdx-basic`,
 `samples/rsc-vite-basic`, and `samples/full-stack-routing`.

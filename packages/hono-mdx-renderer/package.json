@@ -1,13 +1,13 @@
 {
   "name": "@yoshikouki/hono-mdx-renderer",
   "version": "0.0.0",
-  "description": "Markdown and MDX renderer integration for Hono file routes",
+  "description": "Markdown and MDX route handlers for Hono",
   "type": "module",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": ["dist"],
   "scripts": {
-    "build": "bun build ./src/index.ts --outdir ./dist --target bun --format esm --external @yoshikouki/hono-file-router && tsc -p tsconfig.json --emitDeclarationOnly",
+    "build": "bun build ./src/index.ts --outdir ./dist --target bun --format esm --external hono && tsc -p tsconfig.json --emitDeclarationOnly",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "bun test"
   },
@@ -34,11 +34,9 @@
   },
   "homepage": "https://github.com/yoshikouki/hono-kit/tree/main/packages/hono-mdx-renderer",
   "peerDependencies": {
-    "@yoshikouki/hono-file-router": ">=0.0.0",
     "hono": ">=4.0.0"
   },
   "devDependencies": {
-    "@yoshikouki/hono-file-router": "workspace:*",
     "hono": "^4.12.27",
     "typescript": "^6.0.3"
   }

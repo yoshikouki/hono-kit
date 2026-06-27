@@ -1,125 +1,72 @@
 import { expect, test } from "bun:test";
-import { mdRenderer, mdxRenderer } from "../src";
+import { Hono } from "hono";
+import { mdRenderer, mdxRenderer, rawMarkdownRenderer } from "../src";
 
-test("mdRenderer accepts markdown routes and exposes raw markdown", async () => {
-  const route = {
-    file: "routes/docs/readme.md",
-    id: "docs-readme",
-    kind: "content",
-    load: async () => "---\ntitle: Readme\n---\n# Readme",
-    path: "/docs/readme",
-    routeDirectory: "docs",
-  };
-  const renderer = mdRenderer();
+test("mdRenderer serves Markdown HTML and rawMarkdownRenderer serves raw Markdown", async () => {
+  const app = new Hono();
+  const source = "---\ntitle: Readme\n---\n# Readme";
 
-  expect(renderer.accepts(route)).toBe(true);
+  app.get("/docs/readme", mdRenderer(source));
+  app.get("/docs/readme.md", rawMarkdownRenderer(source));
 
-  const html = await renderer.render({
-    context: undefined,
-    params: {},
-    pathname: "/docs/readme",
-    request: new Request("https://example.test/docs/readme"),
-    route,
-    url: new URL("https://example.test/docs/readme"),
-  });
+  const html = await app.request("/docs/readme");
+  expect(html.headers.get("Content-Type")).toContain("text/html");
   expect(await html.text()).toContain("# Readme");
 
-  const generated = renderer.generatedRoutes?.(route)?.[0];
-  expect(generated?.path).toBe("/docs/readme.md");
-  const raw = await generated?.render({
-    context: undefined,
-    generatedRoute: generated,
-    params: {},
-    pathname: "/docs/readme",
-    request: new Request("https://example.test/docs/readme.md"),
-    route,
-    url: new URL("https://example.test/docs/readme.md"),
-  });
-  expect(await raw?.text()).toContain("title: Readme");
+  const raw = await app.request("/docs/readme.md");
+  expect(raw.headers.get("Content-Type")).toContain("text/markdown");
+  expect(await raw.text()).toContain("title: Readme");
 });
 
-test("mdRenderer allows apps to customize HTML rendering and raw paths", async () => {
-  const route = {
-    file: "routes/docs/readme.md",
-    id: "docs-readme",
-    kind: "content",
-    load: async () => "---\ntitle: Readme\n---\n# Readme",
-    path: "/docs/readme",
-    routeDirectory: "docs",
-  };
-  const renderer = mdRenderer({
-    rawMarkdownPath: (path) => `/raw${path}`,
-    renderMarkdown: ({ markdown }) =>
-      `<article data-source-length="${markdown.source.length}">${markdown.content}</article>`,
-  });
+test("mdRenderer allows apps to customize HTML rendering", async () => {
+  const app = new Hono();
+  const source = "---\ntitle: Readme\n---\n# Readme";
 
-  const html = await renderer.render({
-    context: undefined,
-    params: {},
-    pathname: "/docs/readme",
-    request: new Request("https://example.test/docs/readme"),
-    route,
-    url: new URL("https://example.test/docs/readme"),
-  });
-
-  expect(await html.text()).toContain('<article data-source-length="');
-  expect(renderer.generatedRoutes?.(route)?.[0]?.path).toBe(
-    "/raw/docs/readme"
+  app.get(
+    "/docs/readme",
+    mdRenderer(source, {
+      renderMarkdown: ({ markdown }) =>
+        `<article data-source-length="${markdown.source.length}">${markdown.content}</article>`,
+    })
   );
+
+  const html = await app.request("/docs/readme");
+  expect(await html.text()).toContain('<article data-source-length="');
 });
 
-test("mdxRenderer accepts mdx routes and renders default exports", async () => {
-  const route = {
-    file: "routes/docs/guide.mdx",
-    id: "docs-guide",
-    kind: "page",
-    load: async () => ({
+test("mdxRenderer serves default exports", async () => {
+  const app = new Hono();
+
+  app.get(
+    "/docs/guide",
+    mdxRenderer({
       default: () => "<article>Guide</article>",
-    }),
-    path: "/docs/guide",
-    routeDirectory: "docs",
-  };
-  const renderer = mdxRenderer();
+    })
+  );
 
-  expect(renderer.accepts(route)).toBe(true);
-
-  const response = await renderer.render({
-    context: undefined,
-    params: {},
-    pathname: "/docs/guide",
-    request: new Request("https://example.test/docs/guide"),
-    route,
-    url: new URL("https://example.test/docs/guide"),
-  });
+  const response = await app.request("/docs/guide");
+  expect(response.headers.get("Content-Type")).toContain("text/html");
   expect(await response.text()).toContain("<article>Guide</article>");
 });
 
-test("mdxRenderer allows apps to customize rendered module output", async () => {
-  const route = {
-    file: "routes/docs/guide.mdx",
-    id: "docs-guide",
-    kind: "page",
-    load: async () => ({
-      default: ({ params }: { params: Record<string, string> }) => ({
-        title: `Guide ${params.slug}`,
-      }),
-    }),
-    path: "/docs/:slug",
-    routeDirectory: "docs",
-  };
-  const renderer = mdxRenderer({
-    renderMdx: ({ rendered }) =>
-      `<article>${JSON.stringify(rendered)}</article>`,
-  });
+test("mdxRenderer passes Hono params and allows custom output", async () => {
+  const app = new Hono();
 
-  const response = await renderer.render({
-    context: undefined,
-    params: { slug: "advanced" },
-    pathname: "/docs/advanced",
-    request: new Request("https://example.test/docs/advanced"),
-    route,
-    url: new URL("https://example.test/docs/advanced"),
-  });
+  app.get(
+    "/docs/:slug",
+    mdxRenderer(
+      {
+        default: ({ params }) => ({
+          title: `Guide ${params.slug}`,
+        }),
+      },
+      {
+        renderMdx: ({ rendered }) =>
+          `<article>${JSON.stringify(rendered)}</article>`,
+      }
+    )
+  );
 
+  const response = await app.request("/docs/advanced");
   expect(await response.text()).toContain("Guide advanced");
 });
