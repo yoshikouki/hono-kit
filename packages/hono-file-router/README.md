@@ -56,12 +56,57 @@ const app = new Hono();
 app.route("/", fileBasedRoutes);
 ```
 
+Use eager route modules when file-routed Hono routers depend on parent Hono
+context state such as `c.var`, `c.render()`, or middleware-provided helpers.
+Lazy route modules are useful for plain Hono handlers, but eager modules can be
+mounted directly into the parent Hono route graph.
+
+```ts
+const rscRoutes = createFileRouter({
+  sources: [
+    {
+      files: import.meta.glob("./**/*.{ts,tsx}", {
+        base: "./routes",
+        eager: true,
+      }),
+      routes: honoRoutes(),
+    },
+  ],
+});
+```
+
 The default path convention supports `index`, `[id]`, `[...slug]`, and route
-groups such as `(marketing)`.
+groups such as `(marketing)`. It also ignores route-local `_components`
+directories so broad route globs can include colocated page components without
+turning them into routes.
 
 ```ts
 routeFileToManifestPath("./docs/(guides)/[...slug].ts");
 // { path: "/docs/:slug{.+}", routeDirectory: "docs/(guides)" }
+
+createRouteManifest({
+  sources: [
+    {
+      files: import.meta.glob("./routes/**/*.{ts,tsx}", { base: "./routes" }),
+      routes: honoRoutes(),
+    },
+  ],
+});
+// ./routes/_components/home-page.tsx is ignored by the default convention.
+```
+
+Add `ignore` on a source for app-specific non-route directories.
+
+```ts
+createRouteManifest({
+  sources: [
+    {
+      files: import.meta.glob("./**/*.ts", { base: "./routes" }),
+      ignore: (file) => file.includes("_fixtures/"),
+      routes: honoRoutes(),
+    },
+  ],
+});
 ```
 
 Applications can replace the convention per manifest:

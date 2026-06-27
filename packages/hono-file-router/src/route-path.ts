@@ -103,7 +103,15 @@ function defaultRouteFileToManifestPath(file: string): RoutePathResult {
   };
 }
 
+export function isHonoFilePathIgnored(file: string): boolean {
+  const normalizedFile = trimSlashes(
+    normalizePath(file).replace(RE_LEADING_DOT_SLASH, "")
+  );
+  return normalizedFile.split("/").includes("_components");
+}
+
 export const honoFilePathConvention: RoutePathConvention = {
+  ignore: isHonoFilePathIgnored,
   name: "hono-file",
   toPath: defaultRouteFileToManifestPath,
 };

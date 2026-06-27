@@ -63,6 +63,18 @@ function isRendererSource<
   return "renderer" in source;
 }
 
+function isIgnoredRouteFile<
+  TContext,
+  TModule,
+  TData,
+>(
+  file: string,
+  source: RouteSource<TContext, TModule, TData>,
+  convention: NonNullable<RouteManifestConfig<TContext>["pathConvention"]>
+): boolean {
+  return Boolean(source.ignore?.(file) || convention.ignore?.(file));
+}
+
 function generatedRoutesConflict(
   a: RegisteredRoutePath,
   b: RegisteredRoutePath
@@ -125,6 +137,10 @@ export function createRouteManifest<
     }
 
     for (const [file, value] of Object.entries(source.files)) {
+      if (isIgnoredRouteFile(file, source, pathConvention)) {
+        continue;
+      }
+
       const manifestPath = routeFileToManifestPath(file, pathConvention);
       assertDynamicRoutePolicy(manifestPath.path, file, dynamicRoutes);
 

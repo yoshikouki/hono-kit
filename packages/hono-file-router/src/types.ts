@@ -11,6 +11,7 @@ export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "ALL";
 export type RouteParams = Record<string, string>;
 export type GlobValue<T = unknown> = T | (() => T | Promise<T>);
 export type GlobFiles<T = unknown> = Record<string, GlobValue<T>>;
+export type RouteFileIgnore = (file: string) => boolean;
 
 export interface RoutePathResult {
   path: string;
@@ -18,6 +19,7 @@ export interface RoutePathResult {
 }
 
 export interface RoutePathConvention {
+  ignore?: RouteFileIgnore;
   name: string;
   toPath: (file: string) => RoutePathResult;
 }
@@ -148,6 +150,7 @@ export interface RendererSource<
 > {
   dynamicRoutes?: boolean;
   files: GlobFiles<TModule>;
+  ignore?: RouteFileIgnore;
   kind?: FileRouteKind;
   renderer: FileRouteRenderer<TContext, TModule, TData>;
   routes?: never;
@@ -156,6 +159,7 @@ export interface RendererSource<
 export interface HonoRoutesSource<TModule = unknown> {
   dynamicRoutes?: boolean;
   files: GlobFiles<TModule>;
+  ignore?: RouteFileIgnore;
   kind?: FileRouteKind;
   renderer?: never;
   routes: HonoRoutesProducer;

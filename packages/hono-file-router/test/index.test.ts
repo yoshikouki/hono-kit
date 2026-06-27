@@ -174,6 +174,43 @@ test("builds a route manifest from explicit glob results", () => {
   ]);
 });
 
+test("ignores route-local _components directories by default", () => {
+  const manifest = createRouteManifest({
+    sources: [
+      {
+        files: {
+          "./_components/home.tsx": "home-component",
+          "./users/_components/profile.tsx": "profile-component",
+          "./users/[id].tsx": "user-route",
+        },
+        renderer: textRenderer(),
+      },
+    ],
+  });
+
+  expect(manifest.routes.map((route) => route.file)).toEqual([
+    "./users/[id].tsx",
+  ]);
+  expect(manifest.routes.map((route) => route.path)).toEqual(["/users/:id"]);
+});
+
+test("supports source-local ignored route files", () => {
+  const manifest = createRouteManifest({
+    sources: [
+      {
+        files: {
+          "./_private/health.ts": "private",
+          "./health.ts": "public",
+        },
+        ignore: (file) => file.includes("_private/"),
+        renderer: textRenderer(),
+      },
+    ],
+  });
+
+  expect(manifest.routes.map((route) => route.file)).toEqual(["./health.ts"]);
+});
+
 test("resolves directory ancestors from nearest directory to route root", () => {
   expect(routeDirectoryAncestors("docs/(guides)/[slug]")).toEqual([
     "docs/(guides)/[slug]",

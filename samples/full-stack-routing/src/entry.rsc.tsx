@@ -8,15 +8,16 @@ import {
 } from "@yoshikouki/hono-mdx-renderer";
 import { rscRenderer } from "@yoshikouki/hono-rsc-renderer";
 import { compileMdxRoute } from "./loaders";
-import HomePage from "./routes/pages/index";
-import UserPage from "./routes/pages/users/[id]";
 import guideMdx from "./routes/content/docs/guide.mdx?raw";
 import readmeMd from "./routes/content/docs/readme.md?raw";
 
-const apiRoutes = createFileRouter({
+const fileRoutes = createFileRouter({
   sources: [
     {
-      files: import.meta.glob("./api/**/*.ts", { base: "./routes" }),
+      files: import.meta.glob("./**/*.{ts,tsx}", {
+        base: "./routes",
+        eager: true,
+      }),
       routes: honoRoutes(),
     },
   ],
@@ -38,14 +39,10 @@ app.get(
   ))
 );
 
-app.get("/", (c) => c.render(<HomePage />));
-app.get("/users/:id", (c) =>
-  c.render(<UserPage id={c.req.param("id")} />)
-);
 app.get("/docs/readme", mdRenderer(readmeMd));
 app.get("/docs/readme.md", rawMarkdownRenderer(readmeMd));
 app.get("/docs/guide", mdxRenderer(() => compileMdxRoute(guideMdx)));
-app.route("/", apiRoutes);
+app.route("/", fileRoutes);
 
 export default function handler(
   request: Request

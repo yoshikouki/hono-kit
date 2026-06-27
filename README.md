@@ -24,8 +24,8 @@ scope and uses Bun for local development.
   routing
 - `samples/rsc-vite-basic` - builds a Vite RSC Hono app and
   verifies same-path HTML and Flight responses
-- `samples/full-stack-routing` - combines Hono route modules, RSC pages, and
-  Markdown/MDX content routes in one router
+- `samples/full-stack-routing` - combines file-routed Hono API modules,
+  file-routed RSC page modules, and Markdown/MDX content routes in one app
 
 ## Design
 

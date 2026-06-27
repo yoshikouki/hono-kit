@@ -46,6 +46,15 @@ test("built integrated router serves RSC HTML and same-path Flight", async () =>
   expect(flight).toContain("42");
 });
 
+test("built integrated router keeps route-local components out of the route graph", async () => {
+  const handler = await loadBuiltHandler();
+
+  const response = await handler(
+    new Request("https://example.test/_components/home-page")
+  );
+  expect(response.status).toBe(404);
+});
+
 test("built integrated router serves Markdown and MDX content routes", async () => {
   const handler = await loadBuiltHandler();
 
