@@ -7,7 +7,7 @@ export default defineConfig({
     rsc: {
       build: {
         rollupOptions: {
-          input: { index: "./src/entry.rsc.ts" },
+          input: { index: "./src/entry.rsc.tsx" },
         },
       },
     },

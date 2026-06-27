@@ -1,25 +1,25 @@
-import type {
-  FileRoute,
-  FileRouteRenderer,
-  RenderInput,
-} from "@yoshikouki/hono-file-router";
+import type { Context, Env, MiddlewareHandler } from "hono";
+import { createElement, Fragment } from "react";
 import type { ReactNode } from "react";
 
-export interface RscRendererOptions {
-  renderRsc?: RenderRsc;
+export interface RscRenderProps {
+  [key: string]: unknown;
+}
+
+export interface RscRendererOptions<E extends Env = Env> {
+  isRscRequest?: (c: Context<E>) => boolean;
   renderHtml?: RenderHtml;
-  rscPrefix?: string;
+  renderRsc?: RenderRsc;
+  varyHeaders?: string[];
 }
 
-export interface RscRouteModule<TContext = unknown> {
-  default: (props: RscPageProps<TContext>) => ReactNode | Promise<ReactNode>;
-}
-
-export interface RscPageProps<TContext = unknown> {
-  context: TContext;
-  params: Record<string, string>;
-  request: Request;
-}
+export type RscLayout = (
+  props: RscRenderProps & {
+    children?: ReactNode;
+    Layout: RscLayout;
+  },
+  c: Context
+) => ReactNode | Promise<ReactNode>;
 
 export type RenderHtml = (
   rscStream: ReadableStream<Uint8Array>,
@@ -30,30 +30,23 @@ export type RenderRsc = (
   node: ReactNode
 ) => ReadableStream<Uint8Array> | Promise<ReadableStream<Uint8Array>>;
 
+declare module "hono" {
+  interface ContextRenderer {
+    // biome-ignore lint/style/useShorthandFunctionType: Hono exposes ContextRenderer as an augmentable interface.
+    (
+      content: ReactNode | Promise<ReactNode>,
+      props?: RscRenderProps
+    ): Response | Promise<Response>;
+  }
+}
+
 const HTML_CONTENT_TYPE = "text/html;charset=utf-8";
 const RSC_CONTENT_TYPE = "text/x-component;charset=utf-8";
 const RSC_CACHE_CONTROL = "private, no-store";
+const DEFAULT_VARY_HEADERS = ["RSC", "Accept"];
 
-function rscPathFor(path: string, prefix: string): string {
-  return path === "/" ? prefix : `${prefix}${path}`;
-}
-
-async function renderModule<TContext>(
-  input: RenderInput<TContext>
-): Promise<ReactNode> {
-  const module = (await input.route.load?.()) as
-    | RscRouteModule<TContext>
-    | undefined;
-  if (!module || typeof module.default !== "function") {
-    throw new Error(`${input.route.file} must default export a page function.`);
-  }
-
-  return module.default({
-    context: input.context,
-    params: input.params,
-    request: input.request,
-  });
-}
+const DEFAULT_LAYOUT: RscLayout = ({ children }) =>
+  createElement(Fragment, null, children);
 
 async function defaultRenderHtml(
   rscStream: ReadableStream<Uint8Array>,
@@ -66,66 +59,107 @@ async function defaultRenderHtml(
   return ssrEntry.renderHtml(rscStream, { signal: options.signal });
 }
 
-function htmlResponse(stream: ReadableStream<Uint8Array>): Response {
-  return new Response(stream, {
-    headers: { "Content-Type": HTML_CONTENT_TYPE },
-  });
+async function defaultRenderRsc(
+  node: ReactNode
+): Promise<ReadableStream<Uint8Array>> {
+  const { renderToReadableStream } = await import("@vitejs/plugin-rsc/rsc");
+  return renderToReadableStream(node);
 }
 
-function rscResponse(stream: ReadableStream<Uint8Array>): Response {
-  return new Response(stream, {
+function appendVary(headers: Headers, names: string[]): void {
+  const existing = new Set(
+    (headers.get("Vary") ?? "")
+      .split(",")
+      .map((name) => name.trim())
+      .filter(Boolean)
+  );
+  for (const name of names) {
+    existing.add(name);
+  }
+  headers.set("Vary", [...existing].join(", "));
+}
+
+function defaultIsRscRequest(c: Context): boolean {
+  const accept = c.req.header("Accept") ?? "";
+  return c.req.header("RSC") === "1" || accept.includes("text/x-component");
+}
+
+function htmlResponse(
+  stream: ReadableStream<Uint8Array>,
+  varyHeaders: string[]
+): Response {
+  const response = new Response(stream, {
+    headers: { "Content-Type": HTML_CONTENT_TYPE },
+  });
+  appendVary(response.headers, varyHeaders);
+  return response;
+}
+
+function rscResponse(
+  stream: ReadableStream<Uint8Array>,
+  varyHeaders: string[]
+): Response {
+  const response = new Response(stream, {
     headers: {
       "Cache-Control": RSC_CACHE_CONTROL,
       "Content-Type": RSC_CONTENT_TYPE,
     },
   });
+  appendVary(response.headers, varyHeaders);
+  return response;
 }
 
-async function renderRscStream<TContext>(
-  input: RenderInput<TContext>,
-  renderRsc: RenderRsc
-): Promise<ReadableStream<Uint8Array>> {
-  return renderRsc(await renderModule(input));
+function createRenderer<E extends Env>(
+  c: Context<E>,
+  Layout: RscLayout,
+  component: RscLayout | undefined,
+  options: Required<RscRendererOptions<E>>
+) {
+  return async (
+    children: ReactNode | Promise<ReactNode>,
+    props: RscRenderProps = {}
+  ): Promise<Response> => {
+    const resolvedChildren = await children;
+    const node = component
+      ? await component({ ...props, Layout, children: resolvedChildren }, c)
+      : resolvedChildren;
+    const rscStream = await options.renderRsc(node);
+
+    if (options.isRscRequest(c)) {
+      return rscResponse(rscStream, options.varyHeaders);
+    }
+
+    return htmlResponse(
+      await options.renderHtml(rscStream, {
+        request: c.req.raw,
+        signal: c.req.raw.signal,
+      }),
+      options.varyHeaders
+    );
+  };
 }
 
-async function defaultRenderRsc(node: ReactNode): Promise<ReadableStream<Uint8Array>> {
-  const { renderToReadableStream } = await import("@vitejs/plugin-rsc/rsc");
-  return renderToReadableStream(node);
-}
+export function rscRenderer<
+  E extends Env = Env,
+>(
+  component?: RscLayout,
+  options: RscRendererOptions<E> = {}
+): MiddlewareHandler<E> {
+  const resolvedOptions = {
+    isRscRequest: options.isRscRequest ?? defaultIsRscRequest,
+    renderHtml: options.renderHtml ?? defaultRenderHtml,
+    renderRsc: options.renderRsc ?? defaultRenderRsc,
+    varyHeaders: options.varyHeaders ?? DEFAULT_VARY_HEADERS,
+  } satisfies Required<RscRendererOptions<E>>;
 
-export function rscRenderer<TContext = unknown>(
-  options: RscRendererOptions = {}
-): FileRouteRenderer<TContext> {
-  const renderHtml = options.renderHtml ?? defaultRenderHtml;
-  const renderRsc = options.renderRsc ?? defaultRenderRsc;
-  const rscPrefix = options.rscPrefix ?? "/__rsc";
-
-  return {
-    name: "rsc",
-    accepts(route: FileRoute) {
-      return route.kind === "rsc" || route.file.endsWith(".tsx");
-    },
-    generatedRoutes(route) {
-      return [
-        {
-          kind: "rsc",
-          method: "GET",
-          owner: route.id,
-          path: rscPathFor(route.path, rscPrefix),
-          async render(input) {
-            return rscResponse(await renderRscStream(input, renderRsc));
-          },
-        },
-      ];
-    },
-    async render(input) {
-      const rscStream = await renderRscStream(input, renderRsc);
-      return htmlResponse(
-        await renderHtml(rscStream, {
-          request: input.request,
-          signal: input.request.signal,
-        })
+  return (c, next) => {
+    const currentLayout = (c.getLayout() ?? DEFAULT_LAYOUT) as RscLayout;
+    if (component) {
+      c.setLayout((props) =>
+        component({ ...props, Layout: currentLayout }, c)
       );
-    },
+    }
+    c.setRenderer(createRenderer(c, currentLayout, component, resolvedOptions));
+    return next();
   };
 }

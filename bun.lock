@@ -41,7 +41,6 @@
         "@types/react": "^19.2.15",
         "@types/react-dom": "^19.2.3",
         "@vitejs/plugin-rsc": "^0.5.25",
-        "@yoshikouki/hono-file-router": "workspace:*",
         "hono": "^4.12.27",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
@@ -50,7 +49,6 @@
       },
       "peerDependencies": {
         "@vitejs/plugin-rsc": ">=0.5.0",
-        "@yoshikouki/hono-file-router": ">=0.0.0",
         "hono": ">=4.0.0",
         "react": ">=19.0.0",
         "react-dom": ">=19.0.0",
@@ -99,10 +97,9 @@
       },
     },
     "samples/rsc-file-router-vite-basic": {
-      "name": "@yoshikouki/sample-rsc-file-router-vite-basic",
+      "name": "@yoshikouki/sample-rsc-vite-basic",
       "version": "0.0.0",
       "dependencies": {
-        "@yoshikouki/hono-file-router": "workspace:*",
         "@yoshikouki/hono-rsc-renderer": "workspace:*",
         "hono": "^4.12.27",
         "react": "^19.2.5",
@@ -206,7 +203,7 @@
 
     "@yoshikouki/sample-mdx-file-router-basic": ["@yoshikouki/sample-mdx-file-router-basic@workspace:samples/mdx-file-router-basic"],
 
-    "@yoshikouki/sample-rsc-file-router-vite-basic": ["@yoshikouki/sample-rsc-file-router-vite-basic@workspace:samples/rsc-file-router-vite-basic"],
+    "@yoshikouki/sample-rsc-vite-basic": ["@yoshikouki/sample-rsc-vite-basic@workspace:samples/rsc-file-router-vite-basic"],
 
     "balanced-match": ["balanced-match@4.0.4", "", {}, "sha512-BLrgEcRTwX2o6gGxGOCNyMvGSp35YofuYzw9h1IMTRmKqttAZZVU67bdb9Pr2vUHA8+j3i2tJfjO6C6+4myGTA=="],
 

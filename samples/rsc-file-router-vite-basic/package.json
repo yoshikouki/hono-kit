@@ -1,5 +1,5 @@
 {
-  "name": "@yoshikouki/sample-rsc-file-router-vite-basic",
+  "name": "@yoshikouki/sample-rsc-vite-basic",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -9,7 +9,6 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@yoshikouki/hono-file-router": "workspace:*",
     "@yoshikouki/hono-rsc-renderer": "workspace:*",
     "hono": "^4.12.27",
     "react": "^19.2.5",

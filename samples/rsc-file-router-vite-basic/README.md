@@ -1,7 +1,7 @@
-# rsc-file-router-vite-basic
+# rsc-vite-basic
 
-Vite RSC file-router integration sample for
-`@yoshikouki/hono-rsc-renderer`.
+Vite RSC middleware sample for `@yoshikouki/hono-rsc-renderer`.
 
 The test runs `vite build`, imports the built RSC handler from `dist/rsc`, and
-checks both HTML responses and `/__rsc` Flight responses.
+checks both HTML responses and same-path Flight responses selected by RSC
+request headers.

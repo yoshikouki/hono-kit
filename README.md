@@ -12,7 +12,7 @@ scope and uses Bun for local development.
 ## Packages
 
 - `@yoshikouki/hono-file-router` - file-based routing core for Hono
-- `@yoshikouki/hono-rsc-renderer` - React Server Components renderer integration
+- `@yoshikouki/hono-rsc-renderer` - React Server Components renderer middleware
 - `@yoshikouki/hono-mdx-renderer` - Markdown/MDX renderer integration
 
 ## Samples
@@ -21,8 +21,8 @@ scope and uses Bun for local development.
   route modules
 - `samples/mdx-file-router-basic` - verifies Markdown and MDX renderer
   integration with explicit route sources
-- `samples/rsc-file-router-vite-basic` - builds a Vite RSC file-router app and
-  verifies built HTML and `/__rsc` Flight responses
+- `samples/rsc-file-router-vite-basic` - builds a Vite RSC Hono app and
+  verifies same-path HTML and Flight responses
 - `samples/full-stack-routing` - combines Hono route modules, RSC pages, and
   Markdown/MDX content routes in one router
 
@@ -30,8 +30,8 @@ scope and uses Bun for local development.
 
 The router package is the source of truth for route discovery, manifest
 validation, route ordering, generated-route collision checks, and Hono mounting.
-Renderer packages declare their own generated endpoints, so RSC and Markdown/MDX
-details do not leak into the route core.
+Renderer packages keep presentation and transport details out of the route core;
+RSC is exposed as Hono middleware while Markdown/MDX use file-route renderers.
 
 See [docs/contracts.md](docs/contracts.md) for the public contracts verified by
 the current tests and samples.

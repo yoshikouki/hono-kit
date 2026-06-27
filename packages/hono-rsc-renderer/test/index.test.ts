@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { Hono } from "hono";
 import { rscRenderer } from "../src";
 
 function textStream(value: string): ReadableStream<Uint8Array> {
@@ -10,46 +11,45 @@ function textStream(value: string): ReadableStream<Uint8Array> {
   });
 }
 
-const route = {
-  file: "routes/about/index.tsx",
-  id: "about",
-  kind: "page",
-  load: async () => ({
-    default: ({ params }: { params: Record<string, string> }) =>
-      `<main>${params.name ?? "about"}</main>`,
-  }),
-  path: "/about/:name",
-  routeDirectory: "about",
-};
+function createTestApp() {
+  const app = new Hono();
+  app.get(
+    "/page/*",
+    rscRenderer(
+      ({ children, title }) => `${title ?? "Untitled"}:${children ?? ""}`,
+      {
+        renderHtml: async (rscStream) => rscStream,
+        renderRsc: (node) => textStream(String(node)),
+      }
+    )
+  );
+  app.get("/page/about/:name", (c) =>
+    c.render(c.req.param("name"), { title: "About" })
+  );
+  return app;
+}
 
-test("accepts tsx routes and declares an RSC generated route", () => {
-  const renderer = rscRenderer();
-  const generatedRoutes = renderer.generatedRoutes?.(route) ?? [];
+test("sets a Hono renderer that serves HTML through c.render", async () => {
+  const app = createTestApp();
+  const response = await app.request("/page/about/codex");
 
-  expect(renderer.accepts(route)).toBe(true);
-  expect(generatedRoutes[0]?.path).toBe("/__rsc/about/:name");
+  expect(response.status).toBe(200);
+  expect(response.headers.get("Content-Type")).toContain("text/html");
+  expect(response.headers.get("Vary")).toContain("RSC");
+  expect(response.headers.get("Vary")).toContain("Accept");
+  expect(await response.text()).toBe("About:codex");
 });
 
-test("renders HTML and RSC responses from a default page export", async () => {
-  const renderer = rscRenderer({
-    renderHtml: async (rscStream) => rscStream,
-    renderRsc: (node) => textStream(String(node)),
+test("serves Flight from the same route when RSC headers are present", async () => {
+  const app = createTestApp();
+  const response = await app.request("/page/about/codex", {
+    headers: { Accept: "text/x-component", RSC: "1" },
   });
-  const input = {
-    context: undefined,
-    params: { name: "codex" },
-    pathname: "/about/codex",
-    request: new Request("https://example.test/about/codex"),
-    route,
-    url: new URL("https://example.test/about/codex"),
-  };
 
-  const html = await renderer.render(input);
-  expect(html.headers.get("Content-Type")).toContain("text/html");
-  expect(await html.text()).toContain("codex");
-
-  const generated = renderer.generatedRoutes?.(route)?.[0];
-  const rsc = await generated?.render({ ...input, generatedRoute: generated });
-  expect(rsc?.headers.get("Content-Type")).toContain("text/x-component");
-  expect(await rsc?.text()).toContain("codex");
+  expect(response.status).toBe(200);
+  expect(response.headers.get("Content-Type")).toContain("text/x-component");
+  expect(response.headers.get("Cache-Control")).toContain("no-store");
+  expect(response.headers.get("Vary")).toContain("RSC");
+  expect(response.headers.get("Vary")).toContain("Accept");
+  expect(await response.text()).toBe("About:codex");
 });

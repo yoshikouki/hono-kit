@@ -23,7 +23,7 @@ test("built integrated router serves Hono route modules", async () => {
   });
 });
 
-test("built integrated router serves RSC HTML and Flight routes", async () => {
+test("built integrated router serves RSC HTML and same-path Flight", async () => {
   const handler = await loadBuiltHandler();
 
   const htmlResponse = await handler(new Request("https://example.test/"));
@@ -33,11 +33,15 @@ test("built integrated router serves RSC HTML and Flight routes", async () => {
   expect(html).toContain("Full Stack Routing");
 
   const rscResponse = await handler(
-    new Request("https://example.test/__rsc/users/42")
+    new Request("https://example.test/users/42", {
+      headers: { Accept: "text/x-component", RSC: "1" },
+    })
   );
   const flight = await rscResponse.text();
   expect(rscResponse.status).toBe(200);
   expect(rscResponse.headers.get("Content-Type")).toContain("text/x-component");
+  expect(rscResponse.headers.get("Vary")).toContain("RSC");
+  expect(rscResponse.headers.get("Vary")).toContain("Accept");
   expect(flight).toContain("Profile");
   expect(flight).toContain("42");
 });

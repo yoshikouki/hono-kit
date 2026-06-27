@@ -1,10 +1,84 @@
 # @yoshikouki/hono-rsc-renderer
 
-React Server Components renderer integration for Hono file routes.
+React Server Components renderer middleware for Hono.
 
-This package provides an RSC renderer, generated `text/x-component` routes,
-and reusable Vite RSC SSR/browser entries for Hono file routes.
+This package follows Hono's built-in JSX Renderer shape: install middleware on a
+route group, then return `c.render()` from ordinary Hono route handlers. Hono
+keeps ownership of the request lifecycle, middleware, authentication,
+authorization, params, variables, bindings, redirects, and errors.
 
-The renderer is verified by `samples/rsc-file-router-vite-basic`, which runs
-`vite build` and checks the built RSC handler's HTML and `/__rsc` Flight
-responses.
+```tsx
+import { Hono } from "hono";
+import { rscRenderer } from "@yoshikouki/hono-rsc-renderer";
+import AboutPage from "./pages/about";
+
+const app = new Hono();
+
+app.get(
+  "/page/*",
+  rscRenderer(({ children }) => (
+    <html lang="en">
+      <body>
+        <header>Menu</header>
+        <main>{children}</main>
+      </body>
+    </html>
+  ))
+);
+
+app.get("/page/about", (c) => c.render(<AboutPage />));
+```
+
+Flight responses use the same route path as the HTML response. The middleware
+returns Flight when the request includes `RSC: 1` or an `Accept` header that
+contains `text/x-component`; otherwise it returns HTML.
+
+```http
+GET /page/about
+Accept: text/html
+
+GET /page/about
+RSC: 1
+Accept: text/x-component
+```
+
+## Type Augmentation
+
+The package augments Hono's `ContextRenderer` with a default RSC signature. Apps
+can extend it further when layout props need stricter types:
+
+```ts
+declare module "hono" {
+  interface ContextRenderer {
+    (
+      content: React.ReactNode | Promise<React.ReactNode>,
+      props?: { title?: string }
+    ): Response | Promise<Response>;
+  }
+}
+```
+
+## Adoption Checklist
+
+- Keep auth, authorization, tenant loading, feature flags, and redirects in Hono
+  middleware or route handlers. Do not duplicate those policies in RSC page
+  modules.
+- Apply the same Hono middleware chain to HTML and Flight requests. Same-path
+  header negotiation makes this the default as long as both requests hit the
+  same route.
+- Preserve `Vary: RSC, Accept` on responses that can differ between HTML and
+  Flight. The middleware sets this by default; keep it when adding cache
+  middleware or CDN rules.
+- Treat Flight responses as private request data unless an app has explicitly
+  proven otherwise. The middleware sets `Cache-Control: private, no-store` on
+  Flight responses by default.
+- If a CDN strips custom request headers, either allow the `RSC` header through
+  or rely on `Accept: text/x-component` and include `Accept` in the cache key.
+- Do not cache HTML and Flight under the same cache key. That can serve Flight
+  payloads to document requests or HTML documents to RSC clients.
+- Add tests that request the same URL once as HTML and once with `RSC: 1` /
+  `Accept: text/x-component`.
+
+The renderer is verified by `samples/rsc-file-router-vite-basic`, which now
+uses Hono routes directly and checks same-path HTML and Flight responses from
+the built Vite RSC handler.

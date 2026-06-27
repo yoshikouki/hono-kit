@@ -1,13 +1,13 @@
 {
   "name": "@yoshikouki/hono-rsc-renderer",
   "version": "0.0.0",
-  "description": "React Server Components renderer integration for Hono file routes",
+  "description": "React Server Components renderer middleware for Hono",
   "type": "module",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": ["dist"],
   "scripts": {
-    "build": "bun build ./src/index.ts ./src/entry.ssr.ts ./src/entry.browser.ts --outdir ./dist --target browser --format esm --external react --external react-dom --external @vitejs/plugin-rsc --external @yoshikouki/hono-file-router && tsc -p tsconfig.json --emitDeclarationOnly",
+    "build": "bun build ./src/index.ts ./src/entry.ssr.ts ./src/entry.browser.ts --outdir ./dist --target browser --format esm --external hono --external react --external react-dom --external @vitejs/plugin-rsc && tsc -p tsconfig.json --emitDeclarationOnly",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "bun test"
   },
@@ -45,7 +45,6 @@
   "homepage": "https://github.com/yoshikouki/hono-kit/tree/main/packages/hono-rsc-renderer",
   "peerDependencies": {
     "@vitejs/plugin-rsc": ">=0.5.0",
-    "@yoshikouki/hono-file-router": ">=0.0.0",
     "hono": ">=4.0.0",
     "react": ">=19.0.0",
     "react-dom": ">=19.0.0"
@@ -54,7 +53,6 @@
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-rsc": "^0.5.25",
-    "@yoshikouki/hono-file-router": "workspace:*",
     "hono": "^4.12.27",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",

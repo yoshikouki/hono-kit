@@ -2,8 +2,10 @@
 
 This repository keeps the file router as the source of truth for route
 discovery, route ordering, generated-route collision checks, and Hono mounting.
-Renderer packages may declare generated routes, but they must not teach the core
-router about RSC, Markdown, or MDX semantics.
+File-route renderer packages may declare generated routes, but they must not
+teach the core router about Markdown or MDX semantics. RSC is exposed as Hono
+middleware instead of a file-route renderer, so the router core does not own RSC
+transport semantics.
 
 ## Package Boundaries
 
@@ -15,10 +17,10 @@ router about RSC, Markdown, or MDX semantics.
   avoids: React, Vite RSC, Markdown/MDX parsing, app-specific metadata
 
 @yoshikouki/hono-rsc-renderer
-  owns: HTML/RSC rendering, /__rsc generated routes, RSC response headers,
-        Vite RSC integration hints
-  knows: file-router renderer contract, React, react-dom, @vitejs/plugin-rsc
-  avoids: route discovery, layout discovery policy, Markdown source handling
+  owns: Hono c.render() integration for React Server Components, same-path
+        Flight negotiation, RSC response headers, Vite RSC integration hints
+  knows: Hono renderer middleware contract, React, react-dom, @vitejs/plugin-rsc
+  avoids: route discovery, authorization policy, Markdown source handling
 
 @yoshikouki/hono-mdx-renderer
   owns: .md/.mdx adaptation, frontmatter, optional raw Markdown responses,
@@ -49,7 +51,7 @@ const app = new Hono();
 app.route("/", fileBasedRoutes);
 ```
 
-Renderer integrations use the same source shape:
+Markdown and MDX renderer integrations use the same source shape:
 
 ```ts
 import { Hono } from "hono";
@@ -57,15 +59,9 @@ import { createFileRouter } from "@yoshikouki/hono-file-router";
 import { honoRoutes } from "@yoshikouki/hono-file-router/hono-routes";
 import { mdRenderer } from "@yoshikouki/hono-mdx-renderer";
 import { mdxRenderer } from "@yoshikouki/hono-mdx-renderer";
-import { rscRenderer } from "@yoshikouki/hono-rsc-renderer";
 
 const fileBasedRoutes = createFileRouter({
   sources: [
-    {
-      files: import.meta.glob("./**/*.tsx", { base: "./routes/pages" }),
-      renderer: rscRenderer(),
-      dynamicRoutes: true,
-    },
     {
       files: import.meta.glob("./api/**/*.ts", { base: "./routes" }),
       routes: honoRoutes(),
@@ -88,6 +84,28 @@ const fileBasedRoutes = createFileRouter({
 
 const app = new Hono();
 app.route("/", fileBasedRoutes);
+```
+
+RSC uses Hono's renderer middleware shape instead of the file-route renderer
+shape:
+
+```tsx
+import { Hono } from "hono";
+import { rscRenderer } from "@yoshikouki/hono-rsc-renderer";
+import HomePage from "./pages/home";
+
+const app = new Hono();
+
+app.get(
+  "*",
+  rscRenderer(({ children }) => (
+    <html lang="en">
+      <body>{children}</body>
+    </html>
+  ))
+);
+
+app.get("/", (c) => c.render(<HomePage />));
 ```
 
 `createFileRouter(config)` normalizes the source config into a manifest, creates
@@ -143,9 +161,9 @@ stable `id`, source `file`, Hono-compatible `path`, source `kind`, optional
 `URL`, and user-provided request `context`.
 
 `FileRouteRenderer` renders primary routes and may declare `GeneratedRoute`
-entries for a `FileRoute`. RSC uses this for `/__rsc` routes; Markdown can use
-it for `.md` routes. The file router collects these declarations and rejects
-collisions before mounting anything.
+entries for a `FileRoute`. Markdown can use this for `.md` raw-content routes.
+The file router collects these declarations and rejects collisions before
+mounting anything.
 
 `GeneratedRoute` is explicit instead of hard-coded. It has an owner route id,
 method, path, optional kind, and a render function. The core router treats it as
@@ -173,19 +191,30 @@ contract.
 
 The core does not inspect route module exports beyond storing the lazy `load`
 function. Export conventions belong to the renderer that owns the source. This
-keeps React and MDX out of the route core.
+keeps MDX and other content transforms out of the route core.
 
 ## Standard Module Contracts
 
-`rscRenderer()` handles `.tsx` sources. It expects a default export function,
-calls it with `{ context, params, request }`, serializes the returned React node
-with `@vitejs/plugin-rsc/rsc`, renders HTML through the package SSR entry, and
-exposes `/__rsc...` as a generated Flight route.
+`rscRenderer()` is Hono middleware. It follows Hono's JSX Renderer shape: the
+middleware sets `c.render()`, and ordinary Hono route handlers decide when to
+render a React Server Component tree.
 
 ```tsx
-export default function Page({ params }: PageProps) {
-  return <main>{params.id}</main>;
-}
+app.get("*", rscRenderer(({ children }) => <html><body>{children}</body></html>));
+app.get("/users/:id", (c) => c.render(<UserPage id={c.req.param("id")} />));
+```
+
+Flight uses the same route path as the HTML response. The middleware returns a
+Flight response when the request includes `RSC: 1` or accepts
+`text/x-component`, and it sets `Vary: RSC, Accept` by default.
+
+```http
+GET /users/42
+Accept: text/html
+
+GET /users/42
+RSC: 1
+Accept: text/x-component
 ```
 
 Vite RSC apps use the package browser entry as the client build input:
@@ -220,8 +249,9 @@ title: Readme
 # Readme
 ```
 
-`mdxRenderer()` handles `.mdx` sources. It expects a default export function,
-matching the same `{ context, params, request }` shape used by the RSC renderer.
+`mdxRenderer()` handles `.mdx` sources. It expects a default export function
+that receives `{ context, params, request }` from the file-route renderer
+contract.
 
 ```mdx
 export default function Page() {
@@ -297,6 +327,7 @@ bun run build
 
 The checked surface includes public manifest types, pure route path tests,
 generated route collision checks, `mountFileRoutes`, `createFileRouter`,
-explicit `.ts` Hono route module sources, standard renderers,
+explicit `.ts` Hono route module sources, Markdown/MDX file-route renderers,
+the RSC Hono renderer middleware,
 `samples/file-router-basic`, `samples/mdx-file-router-basic`,
 `samples/rsc-file-router-vite-basic`, and `samples/full-stack-routing`.
