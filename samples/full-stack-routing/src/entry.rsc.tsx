@@ -1,6 +1,5 @@
 import { Hono } from "hono";
 import { createFileRouter } from "@yoshikouki/hono-file-router";
-import { honoRoutes } from "@yoshikouki/hono-file-router/hono-routes";
 import {
   mdRenderer,
   mdxRenderer,
@@ -19,7 +18,6 @@ const fileRoutes = createFileRouter({
         eager: true,
       }),
       ignore: (file) => file.split("/").includes("_components"),
-      routes: honoRoutes(),
     },
   ],
 });

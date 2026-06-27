@@ -6,7 +6,6 @@ import {
   type HonoLikeApp,
   type HonoRouteModule,
 } from "@yoshikouki/hono-file-router";
-import { honoRoutes } from "@yoshikouki/hono-file-router/hono-routes";
 
 const routeSource = {
   files: {
@@ -18,7 +17,6 @@ const routeSource = {
       import("./routes/docs/(guides)/[...slug]"),
     "./api.ts": () => import("./routes/api"),
   },
-  routes: honoRoutes(),
 };
 
 const notFoundManifest = createRouteManifest({
@@ -28,7 +26,6 @@ const notFoundManifest = createRouteManifest({
         "./_404.ts": () => import("./routes/_404"),
         "./users/_404.ts": () => import("./routes/users/_404"),
       },
-      routes: honoRoutes({ name: "not-found-routes" }),
     },
   ],
 });

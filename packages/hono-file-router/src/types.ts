@@ -1,12 +1,6 @@
 import type { Env } from "hono";
 import type { HonoOptions } from "hono/hono-base";
 
-export type FileRouteKind =
-  | "page"
-  | "content"
-  | "handler"
-  | (string & {});
-
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "ALL";
 export type RouteParams = Record<string, string>;
 export type GlobValue<T = unknown> = T | (() => T | Promise<T>);
@@ -34,7 +28,6 @@ export interface RouteDirectoryEntry {
 export interface FileRoute<TModule = unknown, TData = unknown> {
   file: string;
   id: string;
-  kind: FileRouteKind;
   load?: () => Promise<TModule>;
   metadata?: TData;
   path: string;
@@ -68,7 +61,6 @@ export interface GeneratedRoute<
   TModule = unknown,
   TData = unknown,
 > {
-  kind?: string;
   method?: HttpMethod;
   owner: string;
   path: string;
@@ -80,7 +72,6 @@ export interface GeneratedRoute<
 export interface FileRouteSource<TModule = unknown> {
   contents?: string;
   file: string;
-  kind?: FileRouteKind;
   load?: () => Promise<TModule>;
 }
 
@@ -111,10 +102,6 @@ export interface FileRouteRenderer<
   ) => Response | Promise<Response>;
 }
 
-export interface HonoRoutesProducer {
-  name: string;
-}
-
 export interface HonoRouteModule {
   default?: HonoLikeApp;
 }
@@ -130,7 +117,6 @@ export interface HonoRoute<TModule = unknown> {
   module?: TModule;
   path: string;
   routeDirectory: string;
-  routesName: string;
 }
 
 export interface RouteDirectory<
@@ -151,18 +137,14 @@ export interface RendererSource<
   dynamicRoutes?: boolean;
   files: GlobFiles<TModule>;
   ignore?: RouteFileIgnore;
-  kind?: FileRouteKind;
   renderer: FileRouteRenderer<TContext, TModule, TData>;
-  routes?: never;
 }
 
 export interface HonoRoutesSource<TModule = unknown> {
   dynamicRoutes?: boolean;
   files: GlobFiles<TModule>;
   ignore?: RouteFileIgnore;
-  kind?: FileRouteKind;
   renderer?: never;
-  routes: HonoRoutesProducer;
 }
 
 export type RouteSource<

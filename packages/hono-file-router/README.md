@@ -36,18 +36,17 @@ but the normalized file keys are passed into this package explicitly.
 ## Usage
 
 Pass discovered route modules to `createFileRouter()`. Each Hono route module
-must default export a Hono router.
+must default export a Hono router. A source without `renderer` is treated as a
+Hono route module source.
 
 ```ts
 import { Hono } from "hono";
 import { createFileRouter } from "@yoshikouki/hono-file-router";
-import { honoRoutes } from "@yoshikouki/hono-file-router/hono-routes";
 
 const fileBasedRoutes = createFileRouter({
   sources: [
     {
       files: import.meta.glob("./**/*.ts", { base: "./routes" }),
-      routes: honoRoutes(),
     },
   ],
 });
@@ -69,7 +68,6 @@ const rscRoutes = createFileRouter({
         base: "./routes",
         eager: true,
       }),
-      routes: honoRoutes(),
     },
   ],
 });
@@ -87,7 +85,6 @@ createRouteManifest({
     {
       files: import.meta.glob("./routes/**/*.{ts,tsx}", { base: "./routes" }),
       ignore: (file) => file.split("/").includes("_components"),
-      routes: honoRoutes(),
     },
   ],
 });
@@ -103,7 +100,6 @@ createRouteManifest({
       files: import.meta.glob("./**/*.ts", { base: "./routes" }),
       ignore: (file) =>
         file.split("/").includes("_components") || file.includes("_fixtures/"),
-      routes: honoRoutes(),
     },
   ],
 });

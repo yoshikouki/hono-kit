@@ -14,7 +14,6 @@ import {
   sortRoutesBySpecificity,
   type FileRouteRenderer,
 } from "../src";
-import { honoRoutes } from "../src/hono-routes";
 
 const textRenderer = (name = "text"): FileRouteRenderer => ({
   name,
@@ -422,7 +421,6 @@ test("rejects primary collisions between page and Hono route modules", () => {
           files: {
             "./api.ts": { default: api },
           },
-          routes: honoRoutes(),
         },
       ],
     })
@@ -530,7 +528,6 @@ test("proxies .ts modules as plain Hono route modules", async () => {
         files: {
           "./api.ts": { default: api },
         },
-        routes: honoRoutes(),
       },
     ],
   });
@@ -561,7 +558,6 @@ test("preserves Hono context variables for eager route modules", async () => {
         files: {
           "./api.ts": api,
         },
-        routes: honoRoutes(),
       },
     ],
   });

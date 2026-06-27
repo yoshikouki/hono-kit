@@ -7,13 +7,12 @@
   "types": "./dist/index.d.ts",
   "files": ["dist"],
   "scripts": {
-    "build": "bun build ./src/index.ts ./src/hono-routes.ts --outdir ./dist --target bun --format esm --external hono && tsc -p tsconfig.json --emitDeclarationOnly",
+    "build": "bun build ./src/index.ts --outdir ./dist --target bun --format esm --external hono && tsc -p tsconfig.json --emitDeclarationOnly",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "bun test"
   },
   "exports": {
     ".": "./src/index.ts",
-    "./hono-routes": "./src/hono-routes.ts",
     "./package.json": "./package.json"
   },
   "license": "MIT",
@@ -24,10 +23,6 @@
       ".": {
         "types": "./dist/index.d.ts",
         "import": "./dist/index.js"
-      },
-      "./hono-routes": {
-        "types": "./dist/hono-routes.d.ts",
-        "import": "./dist/hono-routes.js"
       },
       "./package.json": "./package.json"
     }

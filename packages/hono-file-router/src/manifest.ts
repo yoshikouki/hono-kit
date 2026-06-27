@@ -49,8 +49,8 @@ function assertDynamicRoutePolicy(
   }
 }
 
-function routeId(kind: string, file: string): string {
-  return `${kind}:${file}`;
+function routeId(prefix: string, file: string): string {
+  return `${prefix}:${file}`;
 }
 
 function isRendererSource<
@@ -148,7 +148,6 @@ export function createRouteManifest<
         const route: FileRoute = {
           file,
           id: routeId(source.renderer.name, file),
-          kind: source.kind ?? "page",
           load: toLoader(value),
           path: manifestPath.path,
           rendererName: source.renderer.name,
@@ -186,12 +185,11 @@ export function createRouteManifest<
 
       const handler: HonoRoute = {
         file,
-        id: routeId(source.routes.name, file),
+        id: routeId("hono", file),
         load: toLoader(value),
         module: eagerModule(value),
         path: manifestPath.path,
         routeDirectory: manifestPath.routeDirectory,
-        routesName: source.routes.name,
       };
 
       assertUniquePrimaryRoute(primaryShapes, handler.path, file);
