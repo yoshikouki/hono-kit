@@ -11,6 +11,8 @@ export default defineConfig({
         },
       },
     },
+    // The SSR entry is auto-discovered from hono-rsc-renderer's
+    // import.meta.viteRsc.import("./entry.ssr", { environment: "ssr" }).
     client: {
       build: {
         rollupOptions: {

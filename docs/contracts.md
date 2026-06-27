@@ -218,12 +218,23 @@ RSC: 1
 Accept: text/x-component
 ```
 
-Vite RSC apps use the package browser entry as the client build input:
+Vite RSC apps provide an app entry for the `rsc` environment and use the package
+browser entry as the `client` build input. The default `ssr` entry is
+auto-discovered from `hono-rsc-renderer`'s `import.meta.viteRsc.import()` call.
 
 ```ts
 export default defineConfig({
   plugins: [rsc()],
   environments: {
+    rsc: {
+      build: {
+        rollupOptions: {
+          input: { index: "./src/index.tsx" },
+        },
+      },
+    },
+    // The SSR entry is auto-discovered from hono-rsc-renderer's
+    // import.meta.viteRsc.import("./entry.ssr", { environment: "ssr" }).
     client: {
       build: {
         rollupOptions: {

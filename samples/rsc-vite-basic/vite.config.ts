@@ -7,10 +7,12 @@ export default defineConfig({
     rsc: {
       build: {
         rollupOptions: {
-          input: { index: "./src/entry.rsc.tsx" },
+          input: { index: "./src/index.tsx" },
         },
       },
     },
+    // The SSR entry is auto-discovered from hono-rsc-renderer's
+    // import.meta.viteRsc.import("./entry.ssr", { environment: "ssr" }).
     client: {
       build: {
         rollupOptions: {

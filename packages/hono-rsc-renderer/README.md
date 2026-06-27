@@ -42,6 +42,48 @@ RSC: 1
 Accept: text/x-component
 ```
 
+## Vite Setup
+
+Use `@vitejs/plugin-rsc` and provide two explicit build entries:
+
+- `rsc`: your Hono application entry point.
+- `client`: this package's browser entry, which fetches same-path Flight
+  responses and hydrates the document.
+
+```ts
+import rsc from "@vitejs/plugin-rsc";
+import { defineConfig } from "vite";
+
+export default defineConfig({
+  plugins: [rsc()],
+  environments: {
+    rsc: {
+      build: {
+        rollupOptions: {
+          input: { index: "./src/index.tsx" },
+        },
+      },
+    },
+    // The SSR entry is auto-discovered from hono-rsc-renderer's
+    // import.meta.viteRsc.import("./entry.ssr", { environment: "ssr" }).
+    client: {
+      build: {
+        rollupOptions: {
+          input: {
+            index: "@yoshikouki/hono-rsc-renderer/entry.browser",
+          },
+        },
+      },
+    },
+  },
+});
+```
+
+You do not need to add an explicit `ssr` entry for the default setup. The
+renderer imports its SSR helper with `import.meta.viteRsc.import()`, so Vite RSC
+discovers and builds `@yoshikouki/hono-rsc-renderer/entry.ssr` for the `ssr`
+environment.
+
 ## Type Augmentation
 
 The package augments Hono's `ContextRenderer` with a default RSC signature. Apps
