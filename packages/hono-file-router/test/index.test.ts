@@ -473,6 +473,25 @@ test("proxies .ts modules as plain Hono route modules", async () => {
   );
 });
 
+test("passes params to nested dynamic Hono route modules", async () => {
+  const detail = new Hono();
+  detail.get("/", (c) => c.text(`post-detail:${c.req.param("id")}`));
+
+  const app = createFileRouter({
+    sources: [
+      {
+        files: {
+          "./posts/[id]/detail.ts": { default: detail },
+        },
+      },
+    ],
+  });
+
+  expect(await (await app.request("/posts/abc/detail")).text()).toBe(
+    "post-detail:abc"
+  );
+});
+
 test("preserves Hono context variables for eager route modules", async () => {
   interface TestEnv {
     Variables: {
