@@ -99,7 +99,7 @@ test("sorts static generated routes before unrelated dynamic routes", () => {
   const routes = [
     { path: "/users/settings" },
     { path: "/users/:id" },
-    { path: "/__rsc/users/:id" },
+    { path: "/data/users/:id" },
     { path: "/users/settings.md" },
   ];
 
@@ -107,7 +107,7 @@ test("sorts static generated routes before unrelated dynamic routes", () => {
     "/users/settings",
     "/users/settings.md",
     "/users/:id",
-    "/__rsc/users/:id",
+    "/data/users/:id",
   ]);
 });
 
@@ -160,6 +160,114 @@ test("rejects generated routes that collide with primary routes", () => {
             "./__data/about.tsx": "collision",
           },
           renderer: textRenderer(),
+        },
+      ],
+    })
+  ).toThrow(/Duplicate route/);
+});
+
+test("allows generated routes that only overlap by dynamic shape", () => {
+  const renderer: FileRouteRenderer = {
+    name: "preview",
+    accepts: () => true,
+    generatedRoutes(route) {
+      return [
+        {
+          owner: route.id,
+          path:
+            route.path === "/users/settings"
+              ? "/preview/users/settings"
+              : `/preview${route.path}`,
+          render: () => new Response("preview"),
+        },
+      ];
+    },
+    render() {
+      return new Response("primary");
+    },
+  };
+
+  const manifest = createRouteManifest({
+    sources: [
+      {
+        files: {
+          "./users/[id].tsx": "user",
+          "./users/settings.tsx": "settings",
+        },
+        renderer,
+      },
+    ],
+  });
+
+  expect(
+    manifest.generatedRoutes.map((route) => route.path).toSorted()
+  ).toEqual(["/preview/users/:id", "/preview/users/settings"]);
+});
+
+test("rejects duplicate generated routes for the same owner", () => {
+  const renderer: FileRouteRenderer = {
+    name: "duplicate-generated",
+    accepts: () => true,
+    generatedRoutes(route) {
+      return [
+        {
+          owner: route.id,
+          path: "/preview/about",
+          render: () => new Response("first"),
+        },
+        {
+          owner: route.id,
+          path: "/preview/about",
+          render: () => new Response("second"),
+        },
+      ];
+    },
+    render() {
+      return new Response("primary");
+    },
+  };
+
+  expect(() =>
+    createRouteManifest({
+      sources: [
+        {
+          files: {
+            "./about.tsx": "about",
+          },
+          renderer,
+        },
+      ],
+    })
+  ).toThrow(/Duplicate route/);
+});
+
+test("rejects duplicate generated routes across owners", () => {
+  const renderer: FileRouteRenderer = {
+    name: "shared-generated",
+    accepts: () => true,
+    generatedRoutes(route) {
+      return [
+        {
+          owner: route.id,
+          path: "/preview/shared",
+          render: () => new Response("preview"),
+        },
+      ];
+    },
+    render() {
+      return new Response("primary");
+    },
+  };
+
+  expect(() =>
+    createRouteManifest({
+      sources: [
+        {
+          files: {
+            "./about.tsx": "about",
+            "./contact.tsx": "contact",
+          },
+          renderer,
         },
       ],
     })

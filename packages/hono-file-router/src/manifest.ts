@@ -12,14 +12,12 @@ import type {
 import {
   hasDynamicRouteSegments,
   routeFileToManifestPath,
-  routePathsOverlap,
   routePathToShape,
   sortRoutesBySpecificity,
 } from "./route-path";
 
 interface RegisteredRoutePath {
   generated?: boolean;
-  ownerPath: string;
   path: string;
   source: string;
 }
@@ -63,32 +61,11 @@ function isRendererSource<
   return "renderer" in source;
 }
 
-function isRscRoute(path: string): boolean {
-  return path === "/__rsc" || path.startsWith("/__rsc/");
-}
-
 function generatedRoutesConflict(
   a: RegisteredRoutePath,
   b: RegisteredRoutePath
 ): boolean {
-  if (!((a.generated || b.generated) && routePathsOverlap(a.path, b.path))) {
-    return false;
-  }
-
-  if (
-    a.generated &&
-    b.generated &&
-    routePathsOverlap(a.ownerPath, b.ownerPath) &&
-    !(isRscRoute(a.ownerPath) || isRscRoute(b.ownerPath))
-  ) {
-    return false;
-  }
-
-  if (isRscRoute(a.path) || isRscRoute(b.path)) {
-    return true;
-  }
-
-  return a.path === b.path;
+  return (a.generated === true || b.generated === true) && a.path === b.path;
 }
 
 function assertNoGeneratedCollision(
@@ -168,7 +145,6 @@ export function createRouteManifest<
         assertUniquePrimaryRoute(primaryShapes, route.path, file);
 
         const primaryEntry = {
-          ownerPath: route.path,
           path: route.path,
           source: file,
         };
@@ -179,7 +155,6 @@ export function createRouteManifest<
           []) {
           const generatedEntry = {
             generated: true,
-            ownerPath: route.path,
             path: generatedRoute.path,
             source: `${file} generated route ${generatedRoute.path}`,
           };
@@ -203,7 +178,6 @@ export function createRouteManifest<
       assertUniquePrimaryRoute(primaryShapes, handler.path, file);
 
       const handlerEntry = {
-        ownerPath: handler.path,
         path: handler.path,
         source: file,
       };
