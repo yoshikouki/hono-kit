@@ -79,6 +79,6 @@ declare module "hono" {
 - Add tests that request the same URL once as HTML and once with `RSC: 1` /
   `Accept: text/x-component`.
 
-The renderer is verified by `samples/rsc-file-router-vite-basic`, which now
+The renderer is verified by `samples/rsc-vite-basic`, which now
 uses Hono routes directly and checks same-path HTML and Flight responses from
 the built Vite RSC handler.

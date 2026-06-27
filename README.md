@@ -21,7 +21,7 @@ scope and uses Bun for local development.
   route modules
 - `samples/mdx-file-router-basic` - verifies Markdown and MDX renderer
   integration with explicit route sources
-- `samples/rsc-file-router-vite-basic` - builds a Vite RSC Hono app and
+- `samples/rsc-vite-basic` - builds a Vite RSC Hono app and
   verifies same-path HTML and Flight responses
 - `samples/full-stack-routing` - combines Hono route modules, RSC pages, and
   Markdown/MDX content routes in one router

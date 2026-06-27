@@ -332,4 +332,4 @@ generated route collision checks, `mountFileRoutes`, `createFileRouter`,
 explicit `.ts` Hono route module sources, Markdown/MDX file-route renderers,
 the RSC Hono renderer middleware,
 `samples/file-router-basic`, `samples/mdx-file-router-basic`,
-`samples/rsc-file-router-vite-basic`, and `samples/full-stack-routing`.
+`samples/rsc-vite-basic`, and `samples/full-stack-routing`.

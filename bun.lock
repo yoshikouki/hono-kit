@@ -96,7 +96,7 @@
         "typescript": "^6.0.3",
       },
     },
-    "samples/rsc-file-router-vite-basic": {
+    "samples/rsc-vite-basic": {
       "name": "@yoshikouki/sample-rsc-vite-basic",
       "version": "0.0.0",
       "dependencies": {
@@ -203,7 +203,7 @@
 
     "@yoshikouki/sample-mdx-file-router-basic": ["@yoshikouki/sample-mdx-file-router-basic@workspace:samples/mdx-file-router-basic"],
 
-    "@yoshikouki/sample-rsc-vite-basic": ["@yoshikouki/sample-rsc-vite-basic@workspace:samples/rsc-file-router-vite-basic"],
+    "@yoshikouki/sample-rsc-vite-basic": ["@yoshikouki/sample-rsc-vite-basic@workspace:samples/rsc-vite-basic"],
 
     "balanced-match": ["balanced-match@4.0.4", "", {}, "sha512-BLrgEcRTwX2o6gGxGOCNyMvGSp35YofuYzw9h1IMTRmKqttAZZVU67bdb9Pr2vUHA8+j3i2tJfjO6C6+4myGTA=="],
 
