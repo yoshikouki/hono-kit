@@ -26,7 +26,8 @@ transport semantics.
   owns: .md/.mdx adaptation, frontmatter, optional raw Markdown responses,
         Markdown/MDX page rendering hooks
   knows: file-router adapter and renderer contracts
-  avoids: Hono route registration order, RSC transport details
+  avoids: Hono route registration order, MDX compilation, layout policy,
+        RSC transport details
 ```
 
 ## API Shape
@@ -238,8 +239,8 @@ export default defineConfig({
 
 `mdRenderer()` handles raw `.md` sources. It expects `import.meta.glob` to provide
 raw Markdown strings, usually with `{ query: "?raw", import: "default", eager:
-true }`. The primary route renders a simple HTML response, and the generated
-`.md` route returns the raw Markdown.
+true }`. The primary route renders HTML through a package default or app-provided
+`renderMarkdown` hook, and the generated `.md` route returns the raw Markdown.
 
 ```md
 ---
@@ -251,7 +252,8 @@ title: Readme
 
 `mdxRenderer()` handles `.mdx` sources. It expects a default export function
 that receives `{ context, params, request }` from the file-route renderer
-contract.
+contract. The renderer does not compile MDX itself; callers provide bundle-visible
+modules and can customize response generation through `renderMdx`.
 
 ```mdx
 export default function Page() {
