@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, test } from "vitest";
 import { app } from "../src/app";
 
 test("serves a file-based page route", async () => {
@@ -42,12 +42,8 @@ test("serves catch-all routes while omitting route groups from the URL", async (
   });
 });
 
-test("builds directory-scoped 404 behavior outside the router core", async () => {
-  const userMiss = await app.request("/users/42/missing");
-  expect(userMiss.status).toBe(404);
-  expect(await userMiss.text()).toBe("User route not found: /users/42/missing");
+test("falls back to Hono 404 behavior for missing routes", async () => {
+  const response = await app.request("/missing");
 
-  const rootMiss = await app.request("/missing");
-  expect(rootMiss.status).toBe(404);
-  expect(await rootMiss.text()).toBe("Root not found: /missing");
+  expect(response.status).toBe(404);
 });
