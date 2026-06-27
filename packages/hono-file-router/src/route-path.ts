@@ -97,9 +97,6 @@ function defaultRouteFileToManifestPath(file: string): RoutePathResult {
 
   return {
     path: routeSegments.length > 0 ? `/${routeSegments.join("/")}` : "/",
-    routeDirectory: RE_TRAILING_INDEX.test(withoutExt)
-      ? withoutIndex
-      : dirname(withoutExt),
   };
 }
 

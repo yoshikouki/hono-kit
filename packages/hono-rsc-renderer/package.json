@@ -7,7 +7,7 @@
   "types": "./dist/index.d.ts",
   "files": ["dist"],
   "scripts": {
-    "build": "bun build ./src/index.ts ./src/entry.ssr.ts ./src/entry.browser.ts --outdir ./dist --target browser --format esm --external hono --external react --external react-dom --external @vitejs/plugin-rsc && tsc -p tsconfig.json --emitDeclarationOnly",
+    "build": "rm -rf ./dist && bun build ./src/index.ts ./src/entry.ssr.ts ./src/entry.browser.ts --outdir ./dist --target browser --format esm --external hono --external react --external react-dom --external @vitejs/plugin-rsc && tsc -p tsconfig.json --emitDeclarationOnly",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "bun test"
   },

@@ -9,7 +9,6 @@ import type {
   RouteManifestConfig,
   RouteSource,
 } from "./types";
-import { createRouteDirectories } from "./directory";
 import {
   honoFilePathConvention,
   hasDynamicRouteSegments,
@@ -151,7 +150,6 @@ export function createRouteManifest<
           load: toLoader(value),
           path: manifestPath.path,
           rendererName: source.renderer.name,
-          routeDirectory: manifestPath.routeDirectory,
         };
         if (!source.renderer.accepts(route)) {
           throw new Error(
@@ -189,7 +187,6 @@ export function createRouteManifest<
         load: toLoader(value),
         module: eagerModule(value),
         path: manifestPath.path,
-        routeDirectory: manifestPath.routeDirectory,
       };
 
       assertUniquePrimaryRoute(primaryShapes, handler.path, file);
@@ -208,10 +205,6 @@ export function createRouteManifest<
   const sortedRoutes = sortRoutesBySpecificity(routes);
 
   return {
-    directories: createRouteDirectories({
-      handlers: sortedHandlers,
-      routes: sortedRoutes,
-    }),
     generatedRoutes,
     handlers: sortedHandlers,
     renderers,

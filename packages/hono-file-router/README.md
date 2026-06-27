@@ -3,9 +3,9 @@
 File-based routing core for Hono.
 
 This package owns route source contracts, path conventions, manifest creation,
-renderer registration, generated route declarations, route-directory metadata,
-specificity ordering, collision checks, and the Hono router adapter.
-Applications and build tools still own file discovery.
+renderer registration, generated route declarations, specificity ordering,
+collision checks, and the Hono router adapter. Applications and build tools
+still own file discovery.
 
 ## Contract
 
@@ -16,18 +16,16 @@ Applications and build tools still own file discovery.
 - `GeneratedRoute` lets renderers expose endpoints such as raw Markdown without
   hard-coding renderer semantics into the router core.
 - `RoutePathConvention` converts route-root-relative file keys into Hono paths.
-- Directory helpers resolve inherited provider routes without hard-coding names
-  such as `_404` or `_renderer`.
 
 The implementation includes manifest creation, generated-route collision checks,
 `createFileRouter()`, and `mountFileRoutes()`.
 
 ## Boundaries
 
-The router core knows Hono, route paths, route params, route directories, source
-contracts, and renderer contracts. It avoids React, Vite RSC, Markdown/MDX
-parsing, app-specific metadata, authentication policy, layout policy, and file
-discovery.
+The router core knows Hono, route paths, route params, source contracts, and
+renderer contracts. It avoids React, Vite RSC, Markdown/MDX parsing,
+app-specific metadata, authentication policy, layout policy, error policy,
+not-found policy, and file discovery.
 
 Route file keys are route-root-relative. Callers can use Vite
 `import.meta.glob(..., { base })`, explicit module maps, or another build tool,
@@ -78,7 +76,7 @@ groups such as `(marketing)`.
 
 ```ts
 routeFileToManifestPath("./docs/(guides)/[...slug].ts");
-// { path: "/docs/:slug{.+}", routeDirectory: "docs/(guides)" }
+// { path: "/docs/:slug{.+}" }
 
 createRouteManifest({
   sources: [
@@ -114,7 +112,6 @@ const manifest = createRouteManifest({
     toPath(file) {
       return {
         path: fileToAppPath(file),
-        routeDirectory: fileToAppDirectory(file),
       };
     },
   },
@@ -122,44 +119,39 @@ const manifest = createRouteManifest({
 });
 ```
 
-For app-level conventions such as `_404.ts`, keep the convention outside the
-router core and use route-directory helpers to resolve inherited providers.
+For app-level conventions such as not-found or error handling, use Hono's app
+surface around the mounted file router.
 
 ```ts
-const pages = createRouteManifest({ sources: pageSources });
-const providers = createRouteManifest({ sources: providerSources });
+const app = new Hono();
 
-const notFoundProvider = findNearestInheritedRouteProvider(
-  pages.routes[0],
-  providers.routes.filter((route) => route.file.endsWith("_404.tsx"))
-);
+app.route("/", fileBasedRoutes);
+app.notFound((c) => c.text("Not Found", 404));
+app.onError((error, c) => c.text(error.message, 500));
+
+// Exclude support files from the route graph with source-local ignore rules.
+createFileRouter({
+  sources: [
+    {
+      files: import.meta.glob("./**/*.ts", { base: "./routes" }),
+      ignore: (file) => file.startsWith("_") || file.includes("/_"),
+    },
+  ],
+});
 ```
-
-`_404`, `_error`, `_middleware`, `_renderer`, `_layout`, and `_auth` are examples
-of app-owned provider conventions. They are not reserved router-core filenames.
-The router only exposes `routeDirectory` data and generic helper functions such
-as:
-
-- `routeDirectoryAncestors(directory)`
-- `findInheritedRouteProviders(consumer, providers)`
-- `findNearestInheritedRouteProvider(consumer, providers)`
-- `createRouteDirectories(manifest)`
 
 ## Manifest
 
 `createRouteManifest()` normalizes sources into a statically testable route
 manifest. The manifest contains primary `FileRoute` entries, plain Hono route
-module entries, renderer-declared `GeneratedRoute` entries, and route-directory
-groups.
+module entries, and renderer-declared `GeneratedRoute` entries.
 
 `FileRoute` is deliberately small: it has a stable `id`, source `file`,
-Hono-compatible `path`, source `kind`, optional `load`, optional package-owned
-`metadata`, and a filesystem-based `routeDirectory`.
+Hono-compatible `path`, optional `load`, and optional package-owned `metadata`.
 
 `GeneratedRoute` is explicit instead of hard-coded. It has an owner route id,
-method, path, optional kind, and a render function. The core treats generated
-routes as route candidates for ordering and collision checks before mounting
-anything on Hono.
+method, path, and a render function. The core treats generated routes as route
+candidates for ordering and collision checks before mounting anything on Hono.
 
 ## Renderer Contract
 

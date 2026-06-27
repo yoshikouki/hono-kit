@@ -9,14 +9,6 @@ export {
   routePathToShape,
   sortRoutesBySpecificity,
 } from "./route-path";
-export {
-  createRouteDirectories,
-  findInheritedRouteProviders,
-  findNearestInheritedRouteProvider,
-  normalizeRouteDirectory,
-  parentRouteDirectory,
-  routeDirectoryAncestors,
-} from "./directory";
 export type {
   CreateFileRouterOptions,
   FileRoute,
@@ -36,8 +28,6 @@ export type {
   MatchedRoute,
   MountFileRoutesOptions,
   AnyRouteSource,
-  RouteDirectory,
-  RouteDirectoryEntry,
   RendererSource,
   RenderInput,
   RouteManifest,

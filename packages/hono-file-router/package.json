@@ -7,7 +7,7 @@
   "types": "./dist/index.d.ts",
   "files": ["dist"],
   "scripts": {
-    "build": "bun build ./src/index.ts --outdir ./dist --target bun --format esm --external hono && tsc -p tsconfig.json --emitDeclarationOnly",
+    "build": "rm -rf ./dist && bun build ./src/index.ts --outdir ./dist --target bun --format esm --external hono && tsc -p tsconfig.json --emitDeclarationOnly",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "bun test"
   },

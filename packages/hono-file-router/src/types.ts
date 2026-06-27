@@ -9,20 +9,12 @@ export type RouteFileIgnore = (file: string) => boolean;
 
 export interface RoutePathResult {
   path: string;
-  routeDirectory: string;
 }
 
 export interface RoutePathConvention {
   ignore?: RouteFileIgnore;
   name: string;
   toPath: (file: string) => RoutePathResult;
-}
-
-export interface RouteDirectoryEntry {
-  file: string;
-  id: string;
-  path: string;
-  routeDirectory: string;
 }
 
 export interface FileRoute<TModule = unknown, TData = unknown> {
@@ -32,7 +24,6 @@ export interface FileRoute<TModule = unknown, TData = unknown> {
   metadata?: TData;
   path: string;
   rendererName?: string;
-  routeDirectory: string;
 }
 
 export interface MatchedRoute<
@@ -116,17 +107,6 @@ export interface HonoRoute<TModule = unknown> {
   load: () => Promise<TModule>;
   module?: TModule;
   path: string;
-  routeDirectory: string;
-}
-
-export interface RouteDirectory<
-  TFileRoute = FileRoute,
-  THonoRoute = HonoRoute,
-> {
-  directory: string;
-  handlers: THonoRoute[];
-  parent?: string;
-  routes: TFileRoute[];
 }
 
 export interface RendererSource<
@@ -179,7 +159,6 @@ export interface RouteManifest<
   TModule = unknown,
   TData = unknown,
 > {
-  directories: RouteDirectory<FileRoute<TModule, TData>, HonoRoute<TModule>>[];
   generatedRoutes: GeneratedRoute<TContext, TModule, TData>[];
   handlers: HonoRoute<TModule>[];
   renderers: FileRouteRenderer<TContext, TModule, TData>[];

@@ -3,11 +3,8 @@ import { Hono } from "hono";
 import {
   createFileRouter,
   createRouteManifest,
-  findInheritedRouteProviders,
-  findNearestInheritedRouteProvider,
   mountFileRoutes,
   pathnameFromRoutePath,
-  routeDirectoryAncestors,
   routeFileToManifestPath,
   routePathToShape,
   routePathsOverlap,
@@ -44,19 +41,15 @@ const textRenderer = (name = "text"): FileRouteRenderer => ({
 test("converts route files into Hono paths", () => {
   expect(routeFileToManifestPath("./users/[userId]/index.tsx")).toEqual({
     path: "/users/:userId",
-    routeDirectory: "users/[userId]",
   });
   expect(routeFileToManifestPath("./index.tsx")).toEqual({
     path: "/",
-    routeDirectory: "",
   });
   expect(routeFileToManifestPath("./docs/[...slug].tsx")).toEqual({
     path: "/docs/:slug{.+}",
-    routeDirectory: "docs",
   });
   expect(routeFileToManifestPath("./docs/(guides)/[slug].tsx")).toEqual({
     path: "/docs/:slug",
-    routeDirectory: "docs/(guides)",
   });
 });
 
@@ -73,7 +66,6 @@ test("supports custom route path conventions", () => {
       toPath(file) {
         return {
           path: `/${file.replace(/^\.\//, "").replace(/\.[^.]+$/, "").toUpperCase()}`,
-          routeDirectory: "custom",
         };
       },
     },
@@ -88,7 +80,6 @@ test("supports custom route path conventions", () => {
   });
 
   expect(manifest.routes[0]?.path).toBe("/ABOUT");
-  expect(manifest.routes[0]?.routeDirectory).toBe("custom");
 });
 
 test("rejects duplicate dynamic segment names in one route path", () => {
@@ -163,10 +154,6 @@ test("builds a route manifest from explicit glob results", () => {
     "/about",
     "/users/:id",
   ]);
-  expect(manifest.directories.map((directory) => directory.directory)).toEqual([
-    "",
-    "users",
-  ]);
   expect(manifest.generatedRoutes.map((route) => route.path)).toEqual([
     "/__data/about",
     "/__data/users/:id",
@@ -211,58 +198,6 @@ test("supports source-local ignored route files", () => {
     "./users/[id].tsx",
   ]);
   expect(manifest.routes.map((route) => route.path)).toEqual(["/users/:id"]);
-});
-
-test("resolves directory ancestors from nearest directory to route root", () => {
-  expect(routeDirectoryAncestors("docs/(guides)/[slug]")).toEqual([
-    "docs/(guides)/[slug]",
-    "docs/(guides)",
-    "docs",
-    "",
-  ]);
-  expect(routeDirectoryAncestors("docs", { includeSelf: false })).toEqual([
-    "",
-  ]);
-});
-
-test("finds inherited route providers without hard-coding provider semantics", () => {
-  const pageManifest = createRouteManifest({
-    sources: [
-      {
-        files: {
-          "./docs/(guides)/[slug].tsx": "guide",
-        },
-        renderer: textRenderer(),
-      },
-    ],
-  });
-  const providerManifest = createRouteManifest({
-    sources: [
-      {
-        files: {
-          "./_404.tsx": "root-not-found",
-          "./docs/_404.tsx": "docs-not-found",
-        },
-        renderer: textRenderer("provider"),
-      },
-    ],
-  });
-  const route = pageManifest.routes[0];
-  const providers = providerManifest.routes.filter((candidate) =>
-    candidate.file.endsWith("_404.tsx")
-  );
-
-  expect(
-    pageManifest.directories.map((directory) => directory.directory)
-  ).toEqual(["", "docs", "docs/(guides)"]);
-  expect(
-    findInheritedRouteProviders(route, providers).map(
-      (provider) => provider.file
-    )
-  ).toEqual(["./docs/_404.tsx", "./_404.tsx"]);
-  expect(findNearestInheritedRouteProvider(route, providers)?.file).toBe(
-    "./docs/_404.tsx"
-  );
 });
 
 test("rejects same-shape primary route duplicates", () => {
