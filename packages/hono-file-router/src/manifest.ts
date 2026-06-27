@@ -9,7 +9,9 @@ import type {
   RouteManifestConfig,
   RouteSource,
 } from "./types";
+import { createRouteDirectories } from "./directory";
 import {
+  honoFilePathConvention,
   hasDynamicRouteSegments,
   routeFileToManifestPath,
   routePathToShape,
@@ -103,6 +105,7 @@ export function createRouteManifest<
   const sources = Array.isArray(config.sources)
     ? config.sources
     : [config.sources];
+  const pathConvention = config.pathConvention ?? honoFilePathConvention;
 
   if (sources.length === 0) {
     throw new Error("createRouteManifest requires at least one route source.");
@@ -122,7 +125,7 @@ export function createRouteManifest<
     }
 
     for (const [file, value] of Object.entries(source.files)) {
-      const manifestPath = routeFileToManifestPath(file);
+      const manifestPath = routeFileToManifestPath(file, pathConvention);
       assertDynamicRoutePolicy(manifestPath.path, file, dynamicRoutes);
 
       if (isRendererSource(source)) {
@@ -187,10 +190,17 @@ export function createRouteManifest<
     }
   }
 
+  const sortedHandlers = sortRoutesBySpecificity(handlers);
+  const sortedRoutes = sortRoutesBySpecificity(routes);
+
   return {
+    directories: createRouteDirectories({
+      handlers: sortedHandlers,
+      routes: sortedRoutes,
+    }),
     generatedRoutes,
-    handlers: sortRoutesBySpecificity(handlers),
+    handlers: sortedHandlers,
     renderers,
-    routes: sortRoutesBySpecificity(routes),
+    routes: sortedRoutes,
   };
 }

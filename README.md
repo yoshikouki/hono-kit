@@ -18,7 +18,8 @@ scope and uses Bun for local development.
 ## Samples
 
 - `samples/file-router-basic` - uses explicit route sources with `*.ts` Hono
-  route modules
+  route modules, route groups, catch-all params, and app-owned inherited
+  providers
 - `samples/mdx-basic` - verifies Markdown and MDX route handlers without file
   routing
 - `samples/rsc-vite-basic` - builds a Vite RSC Hono app and

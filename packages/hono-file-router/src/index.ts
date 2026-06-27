@@ -2,12 +2,21 @@ export { createFileRouter, mountFileRoutes } from "./hono-adapter";
 export { createRouteManifest } from "./manifest";
 export {
   hasDynamicRouteSegments,
+  honoFilePathConvention,
   pathnameFromRoutePath,
   routeFileToManifestPath,
   routePathsOverlap,
   routePathToShape,
   sortRoutesBySpecificity,
 } from "./route-path";
+export {
+  createRouteDirectories,
+  findInheritedRouteProviders,
+  findNearestInheritedRouteProvider,
+  normalizeRouteDirectory,
+  parentRouteDirectory,
+  routeDirectoryAncestors,
+} from "./directory";
 export type {
   CreateFileRouterOptions,
   FileRoute,
@@ -29,11 +38,15 @@ export type {
   MatchedRoute,
   MountFileRoutesOptions,
   AnyRouteSource,
+  RouteDirectory,
+  RouteDirectoryEntry,
   RendererSource,
   RenderInput,
   RouteManifest,
   RouteManifestConfig,
   RouteParams,
+  RoutePathConvention,
+  RoutePathResult,
   RouteSource,
   RouteSources,
 } from "./types";

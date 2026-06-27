@@ -31,3 +31,23 @@ test("serves plain Hono route modules", async () => {
   expect(response.status).toBe(200);
   expect(await response.json()).toEqual({ ok: true });
 });
+
+test("serves catch-all routes while omitting route groups from the URL", async () => {
+  const response = await app.request("/docs/install/cloudflare");
+
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({
+    section: "guides",
+    slug: "install/cloudflare",
+  });
+});
+
+test("builds directory-scoped 404 behavior outside the router core", async () => {
+  const userMiss = await app.request("/users/42/missing");
+  expect(userMiss.status).toBe(404);
+  expect(await userMiss.text()).toBe("User route not found: /users/42/missing");
+
+  const rootMiss = await app.request("/missing");
+  expect(rootMiss.status).toBe(404);
+  expect(await rootMiss.text()).toBe("Root not found: /missing");
+});

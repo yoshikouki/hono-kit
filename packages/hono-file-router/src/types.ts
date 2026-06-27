@@ -12,6 +12,23 @@ export type RouteParams = Record<string, string>;
 export type GlobValue<T = unknown> = T | (() => T | Promise<T>);
 export type GlobFiles<T = unknown> = Record<string, GlobValue<T>>;
 
+export interface RoutePathResult {
+  path: string;
+  routeDirectory: string;
+}
+
+export interface RoutePathConvention {
+  name: string;
+  toPath: (file: string) => RoutePathResult;
+}
+
+export interface RouteDirectoryEntry {
+  file: string;
+  id: string;
+  path: string;
+  routeDirectory: string;
+}
+
 export interface FileRoute<TModule = unknown, TData = unknown> {
   file: string;
   id: string;
@@ -114,6 +131,16 @@ export interface HonoRoute<TModule = unknown> {
   routesName: string;
 }
 
+export interface RouteDirectory<
+  TFileRoute = FileRoute,
+  THonoRoute = HonoRoute,
+> {
+  directory: string;
+  handlers: THonoRoute[];
+  parent?: string;
+  routes: TFileRoute[];
+}
+
 export interface RendererSource<
   TContext = unknown,
   TModule = unknown,
@@ -157,6 +184,7 @@ export interface RouteManifestConfig<
   _TModule = unknown,
   _TData = unknown,
 > {
+  pathConvention?: RoutePathConvention;
   sources: RouteSources<TContext>;
 }
 
@@ -165,6 +193,7 @@ export interface RouteManifest<
   TModule = unknown,
   TData = unknown,
 > {
+  directories: RouteDirectory<FileRoute<TModule, TData>, HonoRoute<TModule>>[];
   generatedRoutes: GeneratedRoute<TContext, TModule, TData>[];
   handlers: HonoRoute<TModule>[];
   renderers: FileRouteRenderer<TContext, TModule, TData>[];

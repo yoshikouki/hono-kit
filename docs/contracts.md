@@ -1,19 +1,21 @@
 # Contracts
 
 This repository keeps the file router as the source of truth for route
-discovery, route ordering, generated-route collision checks, and Hono mounting.
-Custom file-route renderers may declare generated routes, but they must not
-teach the core router about domain-specific formats. RSC is exposed as Hono
-middleware, and Markdown/MDX are exposed as Hono route handlers, so the router
-core does not own presentation or transport semantics.
+normalization, route manifests, route ordering, generated-route collision
+checks, directory metadata, and Hono mounting. File discovery stays with the
+caller or build tool. Custom file-route renderers may declare generated routes,
+but they must not teach the core router about domain-specific formats. RSC is
+exposed as Hono middleware, and Markdown/MDX are exposed as Hono route handlers,
+so the router core does not own presentation or transport semantics.
 
 ## Package Boundaries
 
 ```txt
 @yoshikouki/hono-file-router
-  owns: file path normalization, route manifest, specificity ordering,
-        generated-route collision checks, Hono adapter
-  knows: Hono, route paths, route params, source and renderer contracts
+  owns: file path conventions, route manifest, directory inheritance helpers,
+        specificity ordering, generated-route collision checks, Hono adapter
+  knows: Hono, route paths, route params, route directories, source and
+         renderer contracts
   avoids: React, Vite RSC, Markdown/MDX parsing, app-specific metadata
 
 @yoshikouki/hono-rsc-renderer
@@ -122,6 +124,32 @@ mountFileRoutes(app, { manifest });
 This keeps the easy path short while preserving a statically testable manifest
 layer.
 
+The default route path convention is HonoX-like without adopting HonoX's
+runtime. It supports `index`, `[id]`, `[...slug]`, and grouping directories such
+as `(marketing)`:
+
+```ts
+routeFileToManifestPath("./docs/(guides)/[...slug].ts");
+// { path: "/docs/:slug{.+}", routeDirectory: "docs/(guides)" }
+```
+
+Applications can replace the convention per manifest:
+
+```ts
+const manifest = createRouteManifest({
+  pathConvention: {
+    name: "app-routes",
+    toPath(file) {
+      return {
+        path: fileToAppPath(file),
+        routeDirectory: fileToAppDirectory(file),
+      };
+    },
+  },
+  sources,
+});
+```
+
 ## Core Types
 
 `RouteManifestConfig` is user input. It carries one or more source declarations.
@@ -136,8 +164,8 @@ options such as `dynamicRoutes` and raw/eager loading behavior belong next to
 the corresponding `import.meta.glob` call.
 
 `RouteManifest` is normalized output. It contains primary `FileRoute` entries,
-renderer-declared `GeneratedRoute` entries, and enough ownership data to explain
-collisions before anything is mounted on a Hono app.
+renderer-declared `GeneratedRoute` entries, route-directory groups, and enough
+ownership data to explain collisions before anything is mounted on a Hono app.
 
 `FileRoute` is the durable route unit. It is deliberately small: a route has a
 stable `id`, source `file`, Hono-compatible `path`, source `kind`, optional
@@ -156,6 +184,23 @@ collisions before mounting anything.
 `GeneratedRoute` is explicit instead of hard-coded. It has an owner route id,
 method, path, optional kind, and a render function. The core router treats it as
 a route candidate for ordering and collision checks.
+
+`RouteDirectory` and the directory helper functions are intentionally generic.
+They let applications build inherited route-directory conventions such as
+`_404`, `_error`, `_middleware`, `_renderer`, `_layout`, or `_auth` without
+making those names router-core features. The core only knows that entries have a
+`routeDirectory` and can be resolved from the nearest directory to the route
+root.
+
+```ts
+const pages = createRouteManifest({ sources: pageSources });
+const notFound = createRouteManifest({ sources: notFoundSources });
+
+const provider = findNearestInheritedRouteProvider(
+  pages.routes[0],
+  notFound.routes.filter((route) => route.file.endsWith("_404.tsx"))
+);
+```
 
 ## Renderer Contract
 

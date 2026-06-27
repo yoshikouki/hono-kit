@@ -1,18 +1,19 @@
-import type { RouteParams } from "./types";
+import type {
+  RouteParams,
+  RoutePathConvention,
+  RoutePathResult,
+} from "./types";
 
 const RE_DYNAMIC_SEGMENT = /^\[([A-Za-z_$][\w$]*)\]$/;
+const RE_CATCH_ALL_SEGMENT = /^\[\.{3}([A-Za-z_$][\w$]*)\]$/;
 const RE_HONO_PARAM_NAME = /^[A-Za-z_$][\w$]*/;
+const RE_GROUP_SEGMENT = /^\(.+\)$/;
 const RE_LEADING_DOT_SLASH = /^\.\/+/;
 const RE_ROUTE_EXTENSION = /\.[^.]+$/;
 const RE_TRAILING_INDEX = /(^|\/)index$/;
 
 interface RoutePathEntry {
   path: string;
-}
-
-export interface RoutePathResult {
-  path: string;
-  routeDirectory: string;
 }
 
 export function trimSlashes(value: string): string {
@@ -29,6 +30,11 @@ export function dirname(path: string): string {
 }
 
 function dynamicSegmentName(segment: string, file: string): string | null {
+  const catchAllMatch = segment.match(RE_CATCH_ALL_SEGMENT);
+  if (catchAllMatch) {
+    return catchAllMatch[1];
+  }
+
   const match = segment.match(RE_DYNAMIC_SEGMENT);
   if (match) {
     return match[1];
@@ -44,6 +50,15 @@ function dynamicSegmentName(segment: string, file: string): string | null {
 }
 
 function segmentToRoutePath(segment: string, file: string): string {
+  if (RE_GROUP_SEGMENT.test(segment)) {
+    return "";
+  }
+
+  const catchAllMatch = segment.match(RE_CATCH_ALL_SEGMENT);
+  if (catchAllMatch) {
+    return `:${catchAllMatch[1]}{.+}`;
+  }
+
   const paramName = dynamicSegmentName(segment, file);
   if (paramName) {
     return `:${paramName}`;
@@ -68,7 +83,7 @@ function assertUniqueDynamicSegmentNames(segments: string[], file: string): void
   }
 }
 
-export function routeFileToManifestPath(file: string): RoutePathResult {
+function defaultRouteFileToManifestPath(file: string): RoutePathResult {
   const normalizedFile = trimSlashes(
     normalizePath(file).replace(RE_LEADING_DOT_SLASH, "")
   );
@@ -76,9 +91,9 @@ export function routeFileToManifestPath(file: string): RoutePathResult {
   const withoutIndex = withoutExt.replace(RE_TRAILING_INDEX, "");
   const segments = withoutIndex.split("/").filter(Boolean);
   assertUniqueDynamicSegmentNames(segments, file);
-  const routeSegments = segments.map((segment) =>
-    segmentToRoutePath(segment, file)
-  );
+  const routeSegments = segments
+    .map((segment) => segmentToRoutePath(segment, file))
+    .filter(Boolean);
 
   return {
     path: routeSegments.length > 0 ? `/${routeSegments.join("/")}` : "/",
@@ -86,6 +101,18 @@ export function routeFileToManifestPath(file: string): RoutePathResult {
       ? withoutIndex
       : dirname(withoutExt),
   };
+}
+
+export const honoFilePathConvention: RoutePathConvention = {
+  name: "hono-file",
+  toPath: defaultRouteFileToManifestPath,
+};
+
+export function routeFileToManifestPath(
+  file: string,
+  convention: RoutePathConvention = honoFilePathConvention
+): RoutePathResult {
+  return convention.toPath(file);
 }
 
 export function hasDynamicRouteSegments(path: string): boolean {
