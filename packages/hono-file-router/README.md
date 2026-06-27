@@ -76,9 +76,7 @@ const rscRoutes = createFileRouter({
 ```
 
 The default path convention supports `index`, `[id]`, `[...slug]`, and route
-groups such as `(marketing)`. It also ignores route-local `_components`
-directories so broad route globs can include colocated page components without
-turning them into routes.
+groups such as `(marketing)`.
 
 ```ts
 routeFileToManifestPath("./docs/(guides)/[...slug].ts");
@@ -88,11 +86,12 @@ createRouteManifest({
   sources: [
     {
       files: import.meta.glob("./routes/**/*.{ts,tsx}", { base: "./routes" }),
+      ignore: (file) => file.split("/").includes("_components"),
       routes: honoRoutes(),
     },
   ],
 });
-// ./routes/_components/home-page.tsx is ignored by the default convention.
+// ./routes/_components/home-page.tsx is ignored by this source.
 ```
 
 Add `ignore` on a source for app-specific non-route directories.
@@ -102,7 +101,8 @@ createRouteManifest({
   sources: [
     {
       files: import.meta.glob("./**/*.ts", { base: "./routes" }),
-      ignore: (file) => file.includes("_fixtures/"),
+      ignore: (file) =>
+        file.split("/").includes("_components") || file.includes("_fixtures/"),
       routes: honoRoutes(),
     },
   ],

@@ -174,7 +174,26 @@ test("builds a route manifest from explicit glob results", () => {
   ]);
 });
 
-test("ignores route-local _components directories by default", () => {
+test("keeps _components route candidates unless a source ignores them", () => {
+  const manifest = createRouteManifest({
+    sources: [
+      {
+        files: {
+          "./_components/home.tsx": "home-component",
+          "./users/[id].tsx": "user-route",
+        },
+        renderer: textRenderer(),
+      },
+    ],
+  });
+
+  expect(manifest.routes.map((route) => route.file)).toEqual([
+    "./_components/home.tsx",
+    "./users/[id].tsx",
+  ]);
+});
+
+test("supports source-local ignored route files", () => {
   const manifest = createRouteManifest({
     sources: [
       {
@@ -183,6 +202,7 @@ test("ignores route-local _components directories by default", () => {
           "./users/_components/profile.tsx": "profile-component",
           "./users/[id].tsx": "user-route",
         },
+        ignore: (file) => file.split("/").includes("_components"),
         renderer: textRenderer(),
       },
     ],
@@ -192,23 +212,6 @@ test("ignores route-local _components directories by default", () => {
     "./users/[id].tsx",
   ]);
   expect(manifest.routes.map((route) => route.path)).toEqual(["/users/:id"]);
-});
-
-test("supports source-local ignored route files", () => {
-  const manifest = createRouteManifest({
-    sources: [
-      {
-        files: {
-          "./_private/health.ts": "private",
-          "./health.ts": "public",
-        },
-        ignore: (file) => file.includes("_private/"),
-        renderer: textRenderer(),
-      },
-    ],
-  });
-
-  expect(manifest.routes.map((route) => route.file)).toEqual(["./health.ts"]);
 });
 
 test("resolves directory ancestors from nearest directory to route root", () => {

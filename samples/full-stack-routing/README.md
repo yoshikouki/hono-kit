@@ -7,8 +7,8 @@ Both `.ts` API routes and `.tsx` RSC page routes are Hono route modules mounted
 through `@yoshikouki/hono-file-router`. The sample uses eager route modules so
 RSC routes inherit the parent `rscRenderer()` middleware and can call
 `c.render()`. Route-local page components live under `src/routes/_components/`,
-which the default file-router convention ignores so they can stay colocated with
-routes without becoming routes themselves.
+which this sample excludes with the route source `ignore` option so they can
+stay colocated with routes without becoming routes themselves.
 
 The test runs `vite build`, imports the built RSC handler from `dist/rsc`, and
 checks API routes, file-routed HTML routes, same-path Flight responses, explicit

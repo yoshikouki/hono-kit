@@ -18,6 +18,7 @@ const fileRoutes = createFileRouter({
         base: "./routes",
         eager: true,
       }),
+      ignore: (file) => file.split("/").includes("_components"),
       routes: honoRoutes(),
     },
   ],

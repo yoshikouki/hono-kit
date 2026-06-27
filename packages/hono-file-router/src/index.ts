@@ -3,7 +3,6 @@ export { createRouteManifest } from "./manifest";
 export {
   hasDynamicRouteSegments,
   honoFilePathConvention,
-  isHonoFilePathIgnored,
   pathnameFromRoutePath,
   routeFileToManifestPath,
   routePathsOverlap,
