@@ -7,6 +7,7 @@ export interface RscRenderProps {
 }
 
 export interface RscRendererOptions<E extends Env = Env> {
+  getNonce?: (c: Context<E>) => string | undefined;
   isRscRequest?: (c: Context<E>) => boolean;
   renderHtml?: RenderHtml;
   renderRsc?: RenderRsc;
@@ -23,7 +24,7 @@ export type RscLayout = (
 
 export type RenderHtml = (
   rscStream: ReadableStream<Uint8Array>,
-  options: { request: Request; signal: AbortSignal }
+  options: { nonce?: string; request: Request; signal: AbortSignal }
 ) => Promise<ReadableStream<Uint8Array>>;
 
 export type RenderRsc = (
@@ -50,13 +51,16 @@ const DEFAULT_LAYOUT: RscLayout = ({ children }) =>
 
 async function defaultRenderHtml(
   rscStream: ReadableStream<Uint8Array>,
-  options: { request: Request; signal: AbortSignal }
+  options: { nonce?: string; request: Request; signal: AbortSignal }
 ): Promise<ReadableStream<Uint8Array>> {
   // import.meta.viteRsc.import is statically transformed by @vitejs/plugin-rsc.
   const ssrEntry = await import.meta.viteRsc.import<
     typeof import("./entry.ssr")
   >("./entry.ssr", { environment: "ssr" });
-  return ssrEntry.renderHtml(rscStream, { signal: options.signal });
+  return ssrEntry.renderHtml(rscStream, {
+    nonce: options.nonce,
+    signal: options.signal,
+  });
 }
 
 async function defaultRenderRsc(
@@ -131,6 +135,7 @@ function createRenderer<E extends Env>(
 
     return htmlResponse(
       await options.renderHtml(rscStream, {
+        nonce: options.getNonce(c),
         request: c.req.raw,
         signal: c.req.raw.signal,
       }),
@@ -146,6 +151,7 @@ export function rscRenderer<
   options: RscRendererOptions<E> = {}
 ): MiddlewareHandler<E> {
   const resolvedOptions = {
+    getNonce: options.getNonce ?? (() => undefined),
     isRscRequest: options.isRscRequest ?? defaultIsRscRequest,
     renderHtml: options.renderHtml ?? defaultRenderHtml,
     renderRsc: options.renderRsc ?? defaultRenderRsc,

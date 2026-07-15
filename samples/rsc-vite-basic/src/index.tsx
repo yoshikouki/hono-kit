@@ -1,23 +1,41 @@
 import { Hono } from "hono";
+import {
+  NONCE,
+  secureHeaders,
+  type SecureHeadersVariables,
+} from "hono/secure-headers";
 import { rscRenderer } from "@yoshikouki/hono-rsc-renderer";
 import HomePage from "./pages/home";
 import UserPage from "./pages/users/[id]";
 
-const app = new Hono();
+const app = new Hono<{ Variables: SecureHeadersVariables }>();
+
+app.use(
+  "*",
+  secureHeaders({
+    contentSecurityPolicy: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", NONCE],
+    },
+  })
+);
 
 app.get(
   "*",
-  rscRenderer(({ children }) => (
-    <html lang="en">
-      <head>
-        <title>RSC Basic</title>
-      </head>
-      <body>
-        <header>RSC Basic</header>
-        <main>{children}</main>
-      </body>
-    </html>
-  ))
+  rscRenderer(
+    ({ children }) => (
+      <html lang="en">
+        <head>
+          <title>RSC Basic</title>
+        </head>
+        <body>
+          <header>RSC Basic</header>
+          <main>{children}</main>
+        </body>
+      </html>
+    ),
+    { getNonce: (c) => c.get("secureHeadersNonce") }
+  )
 );
 
 app.get("/", (c) => c.render(<HomePage />));

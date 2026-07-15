@@ -53,3 +53,59 @@ test("serves Flight from the same route when RSC headers are present", async () 
   expect(response.headers.get("Vary")).toContain("Accept");
   expect(await response.text()).toBe("About:codex");
 });
+
+test("resolves a request nonce once and passes its raw value to HTML rendering", async () => {
+  const nonces: Array<string | undefined> = [];
+  let getNonceCalls = 0;
+  const app = new Hono();
+
+  app.get(
+    "*",
+    rscRenderer(undefined, {
+      getNonce: (c) => {
+        getNonceCalls += 1;
+        return c.req.header("X-Test-Nonce");
+      },
+      renderHtml: (rscStream, options) => {
+        nonces.push(options.nonce);
+        return Promise.resolve(rscStream);
+      },
+      renderRsc: (node) => textStream(String(node)),
+    })
+  );
+  app.get("/", (c) => c.render("content"));
+
+  const response = await app.request("/", {
+    headers: { "X-Test-Nonce": "request-nonce" },
+  });
+
+  expect(await response.text()).toBe("content");
+  expect(getNonceCalls).toBe(1);
+  expect(nonces).toEqual(["request-nonce"]);
+});
+
+test("does not resolve or pass a nonce for Flight responses", async () => {
+  let getNonceCalls = 0;
+  const app = new Hono();
+
+  app.get(
+    "*",
+    rscRenderer(undefined, {
+      getNonce: () => {
+        getNonceCalls += 1;
+        return "unused-nonce";
+      },
+      renderHtml: () =>
+        Promise.reject(new Error("Flight responses must not render HTML")),
+      renderRsc: (node) => textStream(String(node)),
+    })
+  );
+  app.get("/", (c) => c.render("content"));
+
+  const response = await app.request("/", {
+    headers: { Accept: "text/x-component", RSC: "1" },
+  });
+
+  expect(await response.text()).toBe("content");
+  expect(getNonceCalls).toBe(0);
+});
