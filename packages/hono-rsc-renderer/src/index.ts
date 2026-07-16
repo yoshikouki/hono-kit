@@ -95,7 +95,7 @@ function htmlResponse(
   varyHeaders: string[],
   nonce: string | undefined
 ): Response {
-  const response = c.newResponse(stream, {
+  const response = c.body(stream, {
     headers: { "Content-Type": HTML_CONTENT_TYPE },
   });
   if (nonce !== undefined && !response.headers.has("Cache-Control")) {
@@ -110,7 +110,7 @@ function rscResponse(
   stream: ReadableStream<Uint8Array>,
   varyHeaders: string[]
 ): Response {
-  const response = c.newResponse(stream, {
+  const response = c.body(stream, {
     headers: { "Content-Type": RSC_CONTENT_TYPE },
   });
   if (!response.headers.has("Cache-Control")) {
