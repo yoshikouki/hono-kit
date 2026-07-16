@@ -23,9 +23,10 @@ function createTestApp() {
       }
     )
   );
-  app.get("/page/about/:name", (c) =>
-    c.render(c.req.param("name"), { title: "About" })
-  );
+  app.get("/page/about/:name", (c) => {
+    c.header("X-Route-Header", "preserved");
+    return c.render(c.req.param("name"), { title: "About" });
+  });
   return app;
 }
 
@@ -37,6 +38,8 @@ test("sets a Hono renderer that serves HTML through c.render", async () => {
   expect(response.headers.get("Content-Type")).toContain("text/html");
   expect(response.headers.get("Vary")).toContain("RSC");
   expect(response.headers.get("Vary")).toContain("Accept");
+  expect(response.headers.get("Cache-Control")).toBeNull();
+  expect(response.headers.get("X-Route-Header")).toBe("preserved");
   expect(await response.text()).toBe("About:codex");
 });
 
@@ -51,7 +54,51 @@ test("serves Flight from the same route when RSC headers are present", async () 
   expect(response.headers.get("Cache-Control")).toContain("no-store");
   expect(response.headers.get("Vary")).toContain("RSC");
   expect(response.headers.get("Vary")).toContain("Accept");
+  expect(response.headers.get("X-Route-Header")).toBe("preserved");
   expect(await response.text()).toBe("About:codex");
+});
+
+test("defaults nonce-bearing HTML to private no-store", async () => {
+  const app = new Hono();
+
+  app.get(
+    "*",
+    rscRenderer(undefined, {
+      getNonce: () => "request-nonce",
+      renderHtml: async (rscStream) => rscStream,
+      renderRsc: (node) => textStream(String(node)),
+    })
+  );
+  app.get("/", (c) => c.render("content"));
+
+  const response = await app.request("/");
+
+  expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+});
+
+test("preserves an explicit Cache-Control for nonce-bearing HTML", async () => {
+  const app = new Hono();
+
+  app.get(
+    "*",
+    rscRenderer(undefined, {
+      getNonce: () => "request-nonce",
+      renderHtml: async (rscStream) => rscStream,
+      renderRsc: (node) => textStream(String(node)),
+    })
+  );
+  app.get("/", (c) => {
+    c.status(201);
+    c.header("Cache-Control", "private, max-age=0, must-revalidate");
+    return c.render("content");
+  });
+
+  const response = await app.request("/");
+
+  expect(response.status).toBe(201);
+  expect(response.headers.get("Cache-Control")).toBe(
+    "private, max-age=0, must-revalidate"
+  );
 });
 
 test("resolves a request nonce once and passes its raw value to HTML rendering", async () => {
@@ -100,12 +147,18 @@ test("does not resolve or pass a nonce for Flight responses", async () => {
       renderRsc: (node) => textStream(String(node)),
     })
   );
-  app.get("/", (c) => c.render("content"));
+  app.get("/", (c) => {
+    c.header("Cache-Control", "private, max-age=0, must-revalidate");
+    return c.render("content");
+  });
 
   const response = await app.request("/", {
     headers: { Accept: "text/x-component", RSC: "1" },
   });
 
   expect(await response.text()).toBe("content");
+  expect(response.headers.get("Cache-Control")).toBe(
+    "private, max-age=0, must-revalidate"
+  );
   expect(getNonceCalls).toBe(0);
 });

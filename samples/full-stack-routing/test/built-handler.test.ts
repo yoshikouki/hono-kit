@@ -30,6 +30,8 @@ test("built integrated router serves RSC HTML and same-path Flight", async () =>
   const html = await htmlResponse.text();
   expect(htmlResponse.status).toBe(200);
   expect(htmlResponse.headers.get("Content-Type")).toContain("text/html");
+  expect(htmlResponse.headers.get("Cache-Control")).toBeNull();
+  expect(html).not.toMatch(/<script\b[^>]*\bnonce=/i);
   expect(html).toContain("Full Stack Routing");
 
   const rscResponse = await handler(

@@ -44,6 +44,7 @@ declare module "hono" {
 const HTML_CONTENT_TYPE = "text/html;charset=utf-8";
 const RSC_CONTENT_TYPE = "text/x-component;charset=utf-8";
 const RSC_CACHE_CONTROL = "private, no-store";
+const NONCE_HTML_CACHE_CONTROL = "private, no-store";
 const DEFAULT_VARY_HEADERS = ["RSC", "Accept"];
 
 const DEFAULT_LAYOUT: RscLayout = ({ children }) =>
@@ -89,26 +90,32 @@ function defaultIsRscRequest(c: Context): boolean {
 }
 
 function htmlResponse(
+  c: Context,
   stream: ReadableStream<Uint8Array>,
-  varyHeaders: string[]
+  varyHeaders: string[],
+  nonce: string | undefined
 ): Response {
-  const response = new Response(stream, {
+  const response = c.newResponse(stream, {
     headers: { "Content-Type": HTML_CONTENT_TYPE },
   });
+  if (nonce !== undefined && !response.headers.has("Cache-Control")) {
+    response.headers.set("Cache-Control", NONCE_HTML_CACHE_CONTROL);
+  }
   appendVary(response.headers, varyHeaders);
   return response;
 }
 
 function rscResponse(
+  c: Context,
   stream: ReadableStream<Uint8Array>,
   varyHeaders: string[]
 ): Response {
-  const response = new Response(stream, {
-    headers: {
-      "Cache-Control": RSC_CACHE_CONTROL,
-      "Content-Type": RSC_CONTENT_TYPE,
-    },
+  const response = c.newResponse(stream, {
+    headers: { "Content-Type": RSC_CONTENT_TYPE },
   });
+  if (!response.headers.has("Cache-Control")) {
+    response.headers.set("Cache-Control", RSC_CACHE_CONTROL);
+  }
   appendVary(response.headers, varyHeaders);
   return response;
 }
@@ -130,16 +137,19 @@ function createRenderer<E extends Env>(
     const rscStream = await options.renderRsc(node);
 
     if (options.isRscRequest(c)) {
-      return rscResponse(rscStream, options.varyHeaders);
+      return rscResponse(c, rscStream, options.varyHeaders);
     }
 
+    const nonce = options.getNonce(c);
     return htmlResponse(
+      c,
       await options.renderHtml(rscStream, {
-        nonce: options.getNonce(c),
+        nonce,
         request: c.req.raw,
         signal: c.req.raw.signal,
       }),
-      options.varyHeaders
+      options.varyHeaders,
+      nonce
     );
   };
 }

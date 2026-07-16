@@ -85,9 +85,21 @@ app.use(
 ```
 
 Omit `getNonce` to preserve the previous behavior without nonce attributes.
-Because a nonce makes each HTML response request-specific, applications must
-not put nonce-bearing HTML in a shared cache. Cache policy remains the
-application's responsibility.
+Because a nonce makes each HTML response request-specific, nonce-bearing HTML
+defaults to `Cache-Control: private, no-store`. The renderer preserves an
+explicit Hono response header, so applications that need a different private
+cache policy can set it before calling `c.render()`:
+
+```tsx
+app.get("/page/about", (c) => {
+  c.header("Cache-Control", "private, max-age=0, must-revalidate");
+  return c.render(<AboutPage />);
+});
+```
+
+Any override must still prevent nonce-bearing HTML from entering a shared
+cache. HTML rendered without a nonce keeps the previous behavior with no
+renderer-provided `Cache-Control` header.
 
 Flight responses use the same route path as the HTML response. The middleware
 returns Flight when the request includes `RSC: 1` or an `Accept` header that

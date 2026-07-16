@@ -5,6 +5,19 @@ async function loadBuiltHandler() {
   return module.default as (request: Request) => Response | Promise<Response>;
 }
 
+function responseNonce(response: Response): string {
+  const csp = response.headers.get("Content-Security-Policy") ?? "";
+  const nonce = csp.match(/'nonce-([^']+)'/)?.[1];
+  if (!nonce) {
+    throw new Error("Expected a CSP nonce");
+  }
+  return nonce;
+}
+
+function scriptTags(html: string): string[] {
+  return html.match(/<script\b[^>]*>/gi) ?? [];
+}
+
 test("built Vite RSC handler serves HTML", async () => {
   const handler = await loadBuiltHandler();
   const response = await handler(new Request("https://example.test/"));
@@ -18,23 +31,29 @@ test("built Vite RSC handler serves HTML", async () => {
 
 test("built HTML gives every React and Vite owned script the request CSP nonce", async () => {
   const handler = await loadBuiltHandler();
-  const firstResponse = await handler(new Request("https://example.test/"));
-  const firstHtml = await firstResponse.text();
-  const firstCsp = firstResponse.headers.get("Content-Security-Policy") ?? "";
-  const firstNonce = firstCsp.match(/'nonce-([^']+)'/)?.[1];
-  const firstScripts = firstHtml.match(/<script\b[^>]*>/gi) ?? [];
+  const [firstResponse, secondResponse] = await Promise.all([
+    handler(new Request("https://example.test/")),
+    handler(new Request("https://example.test/")),
+  ]);
+  const [firstHtml, secondHtml] = await Promise.all([
+    firstResponse.text(),
+    secondResponse.text(),
+  ]);
+  const firstNonce = responseNonce(firstResponse);
+  const secondNonce = responseNonce(secondResponse);
 
-  expect(firstNonce).toBeTruthy();
-  expect(firstScripts.length).toBeGreaterThan(0);
-  for (const script of firstScripts) {
-    expect(script).toContain(`nonce="${firstNonce}"`);
+  expect(firstResponse.headers.get("Cache-Control")).toBe("private, no-store");
+  expect(secondResponse.headers.get("Cache-Control")).toBe("private, no-store");
+  for (const [html, nonce] of [
+    [firstHtml, firstNonce],
+    [secondHtml, secondNonce],
+  ] as const) {
+    const scripts = scriptTags(html);
+    expect(scripts.length).toBeGreaterThan(0);
+    for (const script of scripts) {
+      expect(script).toContain(`nonce="${nonce}"`);
+    }
   }
-  const secondResponse = await handler(new Request("https://example.test/"));
-  const secondCsp =
-    secondResponse.headers.get("Content-Security-Policy") ?? "";
-  const secondNonce = secondCsp.match(/'nonce-([^']+)'/)?.[1];
-
-  expect(secondNonce).toBeTruthy();
   expect(secondNonce).not.toBe(firstNonce);
 });
 
