@@ -11,6 +11,14 @@ function textStream(value: string): ReadableStream<Uint8Array> {
   });
 }
 
+function varyTokens(response: Response): string[] {
+  return (response.headers.get("Vary") ?? "")
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean)
+    .sort();
+}
+
 function createTestApp() {
   const app = new Hono();
   app.get(
@@ -24,6 +32,10 @@ function createTestApp() {
     )
   );
   app.get("/page/about/:name", (c) => {
+    if (c.req.header("RSC") === "1") {
+      c.status(202);
+    }
+    c.header("Vary", "Origin, accept");
     c.header("X-Route-Header", "preserved");
     return c.render(c.req.param("name"), { title: "About" });
   });
@@ -36,8 +48,7 @@ test("sets a Hono renderer that serves HTML through c.render", async () => {
 
   expect(response.status).toBe(200);
   expect(response.headers.get("Content-Type")).toContain("text/html");
-  expect(response.headers.get("Vary")).toContain("RSC");
-  expect(response.headers.get("Vary")).toContain("Accept");
+  expect(varyTokens(response)).toEqual(["accept", "origin", "rsc"]);
   expect(response.headers.get("Cache-Control")).toBeNull();
   expect(response.headers.get("X-Route-Header")).toBe("preserved");
   expect(await response.text()).toBe("About:codex");
@@ -49,11 +60,10 @@ test("serves Flight from the same route when RSC headers are present", async () 
     headers: { Accept: "text/x-component", RSC: "1" },
   });
 
-  expect(response.status).toBe(200);
+  expect(response.status).toBe(202);
   expect(response.headers.get("Content-Type")).toContain("text/x-component");
-  expect(response.headers.get("Cache-Control")).toContain("no-store");
-  expect(response.headers.get("Vary")).toContain("RSC");
-  expect(response.headers.get("Vary")).toContain("Accept");
+  expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+  expect(varyTokens(response)).toEqual(["accept", "origin", "rsc"]);
   expect(response.headers.get("X-Route-Header")).toBe("preserved");
   expect(await response.text()).toBe("About:codex");
 });

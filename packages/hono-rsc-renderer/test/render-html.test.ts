@@ -56,7 +56,7 @@ test("passes the same raw nonce to Vite RSC and React DOM", async () => {
   ]);
 });
 
-test("omits the nonce from both runtimes when none is configured", async () => {
+test("passes undefined to both runtimes when no nonce is configured", async () => {
   const calls: Array<{ name: string; options: unknown }> = [];
   const runtime: RenderHtmlRuntime = {
     createFromReadableStream: (_stream, options) => {

@@ -72,16 +72,20 @@ async function defaultRenderRsc(
 }
 
 function appendVary(headers: Headers, names: string[]): void {
-  const existing = new Set(
-    (headers.get("Vary") ?? "")
-      .split(",")
-      .map((name) => name.trim())
-      .filter(Boolean)
-  );
+  const existing = (headers.get("Vary") ?? "")
+    .split(",")
+    .map((name) => name.trim())
+    .filter(Boolean);
+  const normalized = new Set(existing.map((name) => name.toLowerCase()));
   for (const name of names) {
-    existing.add(name);
+    const trimmedName = name.trim();
+    const normalizedName = trimmedName.toLowerCase();
+    if (trimmedName && !normalized.has(normalizedName)) {
+      existing.push(trimmedName);
+      normalized.add(normalizedName);
+    }
   }
-  headers.set("Vary", [...existing].join(", "));
+  headers.set("Vary", existing.join(", "));
 }
 
 function defaultIsRscRequest(c: Context): boolean {
