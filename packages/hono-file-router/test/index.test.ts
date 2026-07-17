@@ -266,7 +266,9 @@ test("allows generated routes that only overlap by dynamic shape", () => {
   });
 
   expect(
-    manifest.generatedRoutes.map((route) => route.path).toSorted()
+    manifest.generatedRoutes
+      .map((route) => route.path)
+      .toSorted((left, right) => left.localeCompare(right))
   ).toEqual(["/preview/users/:id", "/preview/users/settings"]);
 });
 
