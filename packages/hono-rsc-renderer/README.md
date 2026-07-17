@@ -36,6 +36,71 @@ app.get(
 app.get("/page/about", (c) => c.render(<AboutPage />));
 ```
 
+## Content Security Policy Nonces
+
+Use `getNonce` to pass a request-scoped CSP nonce through the SSR environment.
+The renderer resolves it once for each HTML request and gives the same value to
+both `@vitejs/plugin-rsc/ssr` and React DOM. React and Vite can then attach it to
+the scripts they own without application-level HTML rewriting or a custom
+Document component.
+
+`getNonce` must return the raw nonce value, such as `abc123`. Do not return a CSP
+source expression such as `'nonce-abc123'`.
+
+Hono's `secureHeaders` middleware stores the raw value in
+`secureHeadersNonce`, while `NONCE` formats the matching CSP source expression:
+
+```tsx
+import { Hono } from "hono";
+import {
+  NONCE,
+  secureHeaders,
+  type SecureHeadersVariables,
+} from "hono/secure-headers";
+import { rscRenderer } from "@yoshikouki/hono-rsc-renderer";
+
+const app = new Hono<{ Variables: SecureHeadersVariables }>();
+
+app.use(
+  "*",
+  secureHeaders({
+    contentSecurityPolicy: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", NONCE],
+    },
+  })
+);
+
+app.use(
+  "*",
+  rscRenderer(
+    ({ children }) => (
+      <html lang="en">
+        <body>{children}</body>
+      </html>
+    ),
+    { getNonce: (c) => c.get("secureHeadersNonce") }
+  )
+);
+```
+
+Omit `getNonce` to preserve the previous behavior without nonce attributes.
+Because a nonce makes each HTML response request-specific, nonce-bearing HTML
+defaults to `Cache-Control: private, no-store`. The renderer preserves an
+explicit Hono response header, so applications that need a different private
+cache policy can set it before calling `c.render()`:
+
+```tsx
+app.get("/page/about", (c) => {
+  c.header("Cache-Control", "private, max-age=0, must-revalidate");
+  return c.render(<AboutPage />);
+});
+```
+
+Any override must still prevent nonce-bearing HTML from entering a shared
+cache. HTML rendered without a nonce keeps the previous behavior with no
+renderer-provided `Cache-Control` header.
+
 Flight responses use the same route path as the HTML response. The middleware
 returns Flight when the request includes `RSC: 1` or an `Accept` header that
 contains `text/x-component`; otherwise it returns HTML.

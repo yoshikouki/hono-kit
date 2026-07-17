@@ -7,6 +7,7 @@ export interface RscRenderProps {
 }
 
 export interface RscRendererOptions<E extends Env = Env> {
+  getNonce?: (c: Context<E>) => string | undefined;
   isRscRequest?: (c: Context<E>) => boolean;
   renderHtml?: RenderHtml;
   renderRsc?: RenderRsc;
@@ -23,7 +24,7 @@ export type RscLayout = (
 
 export type RenderHtml = (
   rscStream: ReadableStream<Uint8Array>,
-  options: { request: Request; signal: AbortSignal }
+  options: { nonce?: string; request: Request; signal: AbortSignal }
 ) => Promise<ReadableStream<Uint8Array>>;
 
 export type RenderRsc = (
@@ -43,6 +44,7 @@ declare module "hono" {
 const HTML_CONTENT_TYPE = "text/html;charset=utf-8";
 const RSC_CONTENT_TYPE = "text/x-component;charset=utf-8";
 const RSC_CACHE_CONTROL = "private, no-store";
+const NONCE_HTML_CACHE_CONTROL = "private, no-store";
 const DEFAULT_VARY_HEADERS = ["RSC", "Accept"];
 
 const DEFAULT_LAYOUT: RscLayout = ({ children }) =>
@@ -50,13 +52,16 @@ const DEFAULT_LAYOUT: RscLayout = ({ children }) =>
 
 async function defaultRenderHtml(
   rscStream: ReadableStream<Uint8Array>,
-  options: { request: Request; signal: AbortSignal }
+  options: { nonce?: string; request: Request; signal: AbortSignal }
 ): Promise<ReadableStream<Uint8Array>> {
   // import.meta.viteRsc.import is statically transformed by @vitejs/plugin-rsc.
   const ssrEntry = await import.meta.viteRsc.import<
     typeof import("./entry.ssr")
   >("./entry.ssr", { environment: "ssr" });
-  return ssrEntry.renderHtml(rscStream, { signal: options.signal });
+  return ssrEntry.renderHtml(rscStream, {
+    nonce: options.nonce,
+    signal: options.signal,
+  });
 }
 
 async function defaultRenderRsc(
@@ -67,16 +72,20 @@ async function defaultRenderRsc(
 }
 
 function appendVary(headers: Headers, names: string[]): void {
-  const existing = new Set(
-    (headers.get("Vary") ?? "")
-      .split(",")
-      .map((name) => name.trim())
-      .filter(Boolean)
-  );
+  const existing = (headers.get("Vary") ?? "")
+    .split(",")
+    .map((name) => name.trim())
+    .filter(Boolean);
+  const normalized = new Set(existing.map((name) => name.toLowerCase()));
   for (const name of names) {
-    existing.add(name);
+    const trimmedName = name.trim();
+    const normalizedName = trimmedName.toLowerCase();
+    if (trimmedName && !normalized.has(normalizedName)) {
+      existing.push(trimmedName);
+      normalized.add(normalizedName);
+    }
   }
-  headers.set("Vary", [...existing].join(", "));
+  headers.set("Vary", existing.join(", "));
 }
 
 function defaultIsRscRequest(c: Context): boolean {
@@ -85,26 +94,32 @@ function defaultIsRscRequest(c: Context): boolean {
 }
 
 function htmlResponse(
+  c: Context,
   stream: ReadableStream<Uint8Array>,
-  varyHeaders: string[]
+  varyHeaders: string[],
+  nonce: string | undefined
 ): Response {
-  const response = new Response(stream, {
+  const response = c.body(stream, {
     headers: { "Content-Type": HTML_CONTENT_TYPE },
   });
+  if (nonce !== undefined && !response.headers.has("Cache-Control")) {
+    response.headers.set("Cache-Control", NONCE_HTML_CACHE_CONTROL);
+  }
   appendVary(response.headers, varyHeaders);
   return response;
 }
 
 function rscResponse(
+  c: Context,
   stream: ReadableStream<Uint8Array>,
   varyHeaders: string[]
 ): Response {
-  const response = new Response(stream, {
-    headers: {
-      "Cache-Control": RSC_CACHE_CONTROL,
-      "Content-Type": RSC_CONTENT_TYPE,
-    },
+  const response = c.body(stream, {
+    headers: { "Content-Type": RSC_CONTENT_TYPE },
   });
+  if (!response.headers.has("Cache-Control")) {
+    response.headers.set("Cache-Control", RSC_CACHE_CONTROL);
+  }
   appendVary(response.headers, varyHeaders);
   return response;
 }
@@ -126,15 +141,19 @@ function createRenderer<E extends Env>(
     const rscStream = await options.renderRsc(node);
 
     if (options.isRscRequest(c)) {
-      return rscResponse(rscStream, options.varyHeaders);
+      return rscResponse(c, rscStream, options.varyHeaders);
     }
 
+    const nonce = options.getNonce(c);
     return htmlResponse(
+      c,
       await options.renderHtml(rscStream, {
+        nonce,
         request: c.req.raw,
         signal: c.req.raw.signal,
       }),
-      options.varyHeaders
+      options.varyHeaders,
+      nonce
     );
   };
 }
@@ -146,6 +165,7 @@ export function rscRenderer<
   options: RscRendererOptions<E> = {}
 ): MiddlewareHandler<E> {
   const resolvedOptions = {
+    getNonce: options.getNonce ?? (() => undefined),
     isRscRequest: options.isRscRequest ?? defaultIsRscRequest,
     renderHtml: options.renderHtml ?? defaultRenderHtml,
     renderRsc: options.renderRsc ?? defaultRenderRsc,

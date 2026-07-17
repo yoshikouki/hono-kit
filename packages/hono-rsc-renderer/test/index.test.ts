@@ -11,6 +11,14 @@ function textStream(value: string): ReadableStream<Uint8Array> {
   });
 }
 
+function varyTokens(response: Response): string[] {
+  return (response.headers.get("Vary") ?? "")
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean)
+    .sort();
+}
+
 function createTestApp() {
   const app = new Hono();
   app.get(
@@ -23,9 +31,14 @@ function createTestApp() {
       }
     )
   );
-  app.get("/page/about/:name", (c) =>
-    c.render(c.req.param("name"), { title: "About" })
-  );
+  app.get("/page/about/:name", (c) => {
+    if (c.req.header("RSC") === "1") {
+      c.status(202);
+    }
+    c.header("Vary", "Origin, accept");
+    c.header("X-Route-Header", "preserved");
+    return c.render(c.req.param("name"), { title: "About" });
+  });
   return app;
 }
 
@@ -35,8 +48,9 @@ test("sets a Hono renderer that serves HTML through c.render", async () => {
 
   expect(response.status).toBe(200);
   expect(response.headers.get("Content-Type")).toContain("text/html");
-  expect(response.headers.get("Vary")).toContain("RSC");
-  expect(response.headers.get("Vary")).toContain("Accept");
+  expect(varyTokens(response)).toEqual(["accept", "origin", "rsc"]);
+  expect(response.headers.get("Cache-Control")).toBeNull();
+  expect(response.headers.get("X-Route-Header")).toBe("preserved");
   expect(await response.text()).toBe("About:codex");
 });
 
@@ -46,10 +60,115 @@ test("serves Flight from the same route when RSC headers are present", async () 
     headers: { Accept: "text/x-component", RSC: "1" },
   });
 
-  expect(response.status).toBe(200);
+  expect(response.status).toBe(202);
   expect(response.headers.get("Content-Type")).toContain("text/x-component");
-  expect(response.headers.get("Cache-Control")).toContain("no-store");
-  expect(response.headers.get("Vary")).toContain("RSC");
-  expect(response.headers.get("Vary")).toContain("Accept");
+  expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+  expect(varyTokens(response)).toEqual(["accept", "origin", "rsc"]);
+  expect(response.headers.get("X-Route-Header")).toBe("preserved");
   expect(await response.text()).toBe("About:codex");
+});
+
+test("defaults nonce-bearing HTML to private no-store", async () => {
+  const app = new Hono();
+
+  app.get(
+    "*",
+    rscRenderer(undefined, {
+      getNonce: () => "request-nonce",
+      renderHtml: async (rscStream) => rscStream,
+      renderRsc: (node) => textStream(String(node)),
+    })
+  );
+  app.get("/", (c) => c.render("content"));
+
+  const response = await app.request("/");
+
+  expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+});
+
+test("preserves an explicit Cache-Control for nonce-bearing HTML", async () => {
+  const app = new Hono();
+
+  app.get(
+    "*",
+    rscRenderer(undefined, {
+      getNonce: () => "request-nonce",
+      renderHtml: async (rscStream) => rscStream,
+      renderRsc: (node) => textStream(String(node)),
+    })
+  );
+  app.get("/", (c) => {
+    c.status(201);
+    c.header("Cache-Control", "private, max-age=0, must-revalidate");
+    return c.render("content");
+  });
+
+  const response = await app.request("/");
+
+  expect(response.status).toBe(201);
+  expect(response.headers.get("Cache-Control")).toBe(
+    "private, max-age=0, must-revalidate"
+  );
+});
+
+test("resolves a request nonce once and passes its raw value to HTML rendering", async () => {
+  const nonces: Array<string | undefined> = [];
+  let getNonceCalls = 0;
+  const app = new Hono();
+
+  app.get(
+    "*",
+    rscRenderer(undefined, {
+      getNonce: (c) => {
+        getNonceCalls += 1;
+        return c.req.header("X-Test-Nonce");
+      },
+      renderHtml: (rscStream, options) => {
+        nonces.push(options.nonce);
+        return Promise.resolve(rscStream);
+      },
+      renderRsc: (node) => textStream(String(node)),
+    })
+  );
+  app.get("/", (c) => c.render("content"));
+
+  const response = await app.request("/", {
+    headers: { "X-Test-Nonce": "request-nonce" },
+  });
+
+  expect(await response.text()).toBe("content");
+  expect(getNonceCalls).toBe(1);
+  expect(nonces).toEqual(["request-nonce"]);
+});
+
+test("does not resolve or pass a nonce for Flight responses", async () => {
+  let getNonceCalls = 0;
+  const app = new Hono();
+
+  app.get(
+    "*",
+    rscRenderer(undefined, {
+      getNonce: () => {
+        getNonceCalls += 1;
+        return "unused-nonce";
+      },
+      renderHtml: () =>
+        Promise.reject(new Error("Flight responses must not render HTML")),
+      renderRsc: (node) => textStream(String(node)),
+    })
+  );
+  app.get("/", (c) => {
+    c.header("Cache-Control", "private, max-age=0, must-revalidate");
+    return c.render("content");
+  });
+
+  const response = await app.request("/", {
+    headers: { Accept: "text/x-component", RSC: "1" },
+  });
+
+  expect(await response.text()).toBe("content");
+  expect(response.headers.get("Cache-Control")).toBe(
+    "private, max-age=0, must-revalidate"
+  );
+  expect(getNonceCalls).toBe(0);
 });
