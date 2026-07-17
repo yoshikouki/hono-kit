@@ -1,15 +1,16 @@
+// biome-ignore-all lint/performance/noJsxPropsBind: DOM event handlers in this sample do not need stable references.
 "use client";
 
-import { useCallback, useState } from "react";
+import { useState } from "react";
 
 export function Counter() {
   const [count, setCount] = useState(0);
-  const increment = useCallback(() => {
-    setCount((current) => current + 1);
-  }, []);
 
   return (
-    <button type="button" onClick={increment}>
+    <button
+      type="button"
+      onClick={() => setCount((current) => current + 1)}
+    >
       Count: {count}
     </button>
   );
