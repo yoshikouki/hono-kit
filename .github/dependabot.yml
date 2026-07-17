@@ -5,7 +5,6 @@ updates:
     directories:
       - /
       - /packages/*
-      - /samples/*
     schedule:
       interval: weekly
       day: monday
