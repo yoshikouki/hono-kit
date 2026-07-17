@@ -24,6 +24,8 @@ scope and uses Bun for local development.
   routing
 - `samples/rsc-vite-basic` - builds a Vite RSC Hono app and
   verifies same-path HTML and Flight responses
+- `samples/rsc-cloudflare-basic` - runs the RSC renderer in Cloudflare Workers
+  through the official Cloudflare Vite plugin and verifies its deploy bundle
 - `samples/full-stack-routing` - combines file-routed Hono API modules,
   file-routed RSC page modules, and Markdown/MDX content routes in one app
 

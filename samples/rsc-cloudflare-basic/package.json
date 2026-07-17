@@ -1,26 +1,29 @@
 {
-  "name": "@yoshikouki/sample-full-stack-routing",
+  "name": "@yoshikouki/sample-rsc-cloudflare-basic",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "scripts": {
+    "dev": "vite",
     "build": "vite build",
-    "test": "bun run build && bun test",
+    "preview": "vite preview",
+    "deploy:dry-run": "wrangler deploy --dry-run --config dist/rsc/wrangler.json",
+    "test": "node test-runtime.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@yoshikouki/hono-file-router": "workspace:*",
-    "@yoshikouki/hono-mdx-renderer": "workspace:*",
     "@yoshikouki/hono-rsc-renderer": "workspace:*",
     "hono": "^4.12.30",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
   },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.45.0",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-rsc": "^0.5.27",
     "typescript": "^6.0.3",
-    "vite": "^8.1.5"
+    "vite": "^8.1.5",
+    "wrangler": "^4.111.0"
   }
 }

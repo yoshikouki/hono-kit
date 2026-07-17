@@ -1,0 +1,7 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "hono-rsc-cloudflare-basic",
+  "main": "./src/index.tsx",
+  "compatibility_date": "2026-07-16",
+  "compatibility_flags": ["nodejs_als"]
+}
