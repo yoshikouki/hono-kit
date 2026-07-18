@@ -130,21 +130,31 @@ test("passes render errors to the request-scoped error observer", async () => {
 
   app.get(
     "*",
-    rscRenderer(undefined, {
-      onError: (caughtError, c) => {
-        calls.push({ error: caughtError, path: c.req.path });
+    rscRenderer(
+      () => {
+        throw error;
       },
-      renderHtml: async (rscStream) => rscStream,
-      renderRsc: (node, options) => {
-        options.onError?.(error);
-        return textStream(String(node));
-      },
-    })
+      {
+        onError: (caughtError, c) => {
+          calls.push({ error: caughtError, path: c.req.path });
+        },
+        renderHtml: async (rscStream) => rscStream,
+        renderRsc: async (node, options) => {
+          try {
+            return textStream(await renderTestNode(node));
+          } catch (caughtError) {
+            options.onError?.(caughtError);
+            return textStream("render failed");
+          }
+        },
+      }
+    )
   );
   app.get("/observed", (c) => c.render("content"));
 
-  await app.request("/observed");
+  const response = await app.request("/observed");
 
+  expect(await response.text()).toBe("render failed");
   expect(calls).toEqual([{ error, path: "/observed" }]);
 });
 
