@@ -2,8 +2,12 @@ import type { Context, Env, MiddlewareHandler } from "hono";
 import { createElement, Fragment } from "react";
 import type { ReactNode } from "react";
 
-// biome-ignore lint/suspicious/noEmptyInterface: Applications add their render props through module augmentation.
-export interface RscRenderProps {}
+declare const rscRenderPropsMarker: unique symbol;
+
+export interface RscRenderProps {
+  /** @internal Keeps the unaugmented interface from accepting arbitrary values. */
+  [rscRenderPropsMarker]?: never;
+}
 
 export interface RscLayoutProps extends RscRenderProps {
   children?: ReactNode;
@@ -55,12 +59,16 @@ export type RenderRsc = (
   options: RenderRscOptions
 ) => ReadableStream<Uint8Array> | Promise<ReadableStream<Uint8Array>>;
 
+type RscRenderPropsArgument = Record<never, never> extends RscRenderProps
+  ? [props?: RscRenderProps]
+  : [props: RscRenderProps];
+
 declare module "hono" {
   interface ContextRenderer {
     // biome-ignore lint/style/useShorthandFunctionType: Hono exposes ContextRenderer as an augmentable interface.
     (
       content: ReactNode,
-      props?: RscRenderProps
+      ...props: RscRenderPropsArgument
     ): Response | Promise<Response>;
   }
 }
@@ -161,8 +169,9 @@ function createRenderer<E extends Env>(
 ) {
   return async (
     children: ReactNode,
-    props: RscRenderProps = {}
+    ...propsArgument: RscRenderPropsArgument
   ): Promise<Response> => {
+    const [props] = propsArgument;
     const onErrorHandler = options.onError;
     const onError = onErrorHandler
       ? (error: unknown) => onErrorHandler(error, c)
@@ -171,7 +180,7 @@ function createRenderer<E extends Env>(
       ? createElement(
           (componentProps: RscRendererComponentProps) =>
             component(componentProps, c),
-          { ...props, Layout },
+          { ...props, Layout } as RscRendererComponentProps,
           children
         )
       : children;

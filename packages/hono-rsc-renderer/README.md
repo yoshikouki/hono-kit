@@ -263,6 +263,21 @@ c.render(<AboutPage />, { title: "About" });
 c.render(<AboutPage />, { titel: "About" }); // TypeScript error
 ```
 
+Without augmentation, `c.render(content)` and `c.render(content, {})` remain
+valid, but arbitrary objects and primitive props are rejected. If an augmented
+property is required, the props argument becomes required as well:
+
+```ts
+declare module "@yoshikouki/hono-rsc-renderer" {
+  interface RscRenderProps {
+    title: string;
+  }
+}
+
+c.render(<AboutPage />, { title: "About" });
+c.render(<AboutPage />); // TypeScript error
+```
+
 ## Adoption Checklist
 
 - Keep auth, authorization, tenant loading, feature flags, and redirects in Hono
