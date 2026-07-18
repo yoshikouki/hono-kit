@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test";
 import { Hono } from "hono";
+import { createElement, Fragment, isValidElement } from "react";
+import type { ReactNode } from "react";
 import { rscRenderer } from "../src";
 
 function textStream(value: string): ReadableStream<Uint8Array> {
@@ -19,6 +21,26 @@ function varyTokens(response: Response): string[] {
     .sort();
 }
 
+async function renderTestNode(node: ReactNode): Promise<string> {
+  const resolvedNode = await node;
+  if (!isValidElement(resolvedNode)) {
+    return String(resolvedNode ?? "");
+  }
+
+  const props = resolvedNode.props as { children?: ReactNode };
+  if (resolvedNode.type === Fragment || typeof resolvedNode.type === "string") {
+    return renderTestNode(props.children);
+  }
+  if (typeof resolvedNode.type !== "function") {
+    throw new TypeError("The test renderer only supports function components");
+  }
+
+  const component = resolvedNode.type as (
+    componentProps: typeof resolvedNode.props
+  ) => ReactNode | Promise<ReactNode>;
+  return renderTestNode(await component(resolvedNode.props));
+}
+
 function createTestApp() {
   const app = new Hono();
   app.get(
@@ -27,7 +49,7 @@ function createTestApp() {
       ({ children, title }) => `${title ?? "Untitled"}:${children ?? ""}`,
       {
         renderHtml: async (rscStream) => rscStream,
-        renderRsc: (node) => textStream(String(node)),
+        renderRsc: async (node) => textStream(await renderTestNode(node)),
       }
     )
   );
@@ -66,6 +88,145 @@ test("serves Flight from the same route when RSC headers are present", async () 
   expect(varyTokens(response)).toEqual(["accept", "origin", "rsc"]);
   expect(response.headers.get("X-Route-Header")).toBe("preserved");
   expect(await response.text()).toBe("About:codex");
+});
+
+test("defers component and promised children evaluation to the RSC renderer", async () => {
+  let componentCalls = 0;
+  let resolveChildren: (value: string) => void = () => undefined;
+  const children = new Promise<string>((resolve) => {
+    resolveChildren = resolve;
+  });
+  const app = new Hono();
+
+  app.get(
+    "*",
+    rscRenderer(
+      ({ children: componentChildren }) => {
+        componentCalls += 1;
+        return createElement(Fragment, null, componentChildren);
+      },
+      {
+        renderHtml: async (rscStream) => rscStream,
+        renderRsc: async (node) => {
+          expect(componentCalls).toBe(0);
+          resolveChildren("deferred");
+          return textStream(await renderTestNode(node));
+        },
+      }
+    )
+  );
+  app.get("/", (c) => c.render(children));
+
+  const response = await app.request("/");
+
+  expect(componentCalls).toBe(1);
+  expect(await response.text()).toBe("deferred");
+});
+
+test("passes render errors to the request-scoped error observer", async () => {
+  const error = new Error("render failed");
+  const calls: Array<{ error: unknown; path: string }> = [];
+  const app = new Hono();
+
+  app.get(
+    "*",
+    rscRenderer(
+      () => {
+        throw error;
+      },
+      {
+        onError: (caughtError, c) => {
+          calls.push({ error: caughtError, path: c.req.path });
+        },
+        renderHtml: async (rscStream) => rscStream,
+        renderRsc: async (node, options) => {
+          try {
+            return textStream(await renderTestNode(node));
+          } catch (caughtError) {
+            options.onError?.(caughtError);
+            return textStream("render failed");
+          }
+        },
+      }
+    )
+  );
+  app.get("/observed", (c) => c.render("content"));
+
+  const response = await app.request("/observed");
+
+  expect(await response.text()).toBe("render failed");
+  expect(calls).toEqual([{ error, path: "/observed" }]);
+});
+
+test("keeps custom RSC negotiation and Vary headers in one contract", async () => {
+  const app = new Hono();
+
+  app.get(
+    "*",
+    rscRenderer(undefined, {
+      negotiation: {
+        isRscRequest: (c) => c.req.header("X-Flight") === "1",
+        varyHeaders: ["X-Flight", "x-flight", "Accept"],
+      },
+      renderHtml: async (rscStream) => rscStream,
+      renderRsc: (node) => textStream(String(node)),
+    })
+  );
+  app.get("/", (c) => c.render("content"));
+
+  const htmlResponse = await app.request("/");
+  const rscResponse = await app.request("/", {
+    headers: { "X-Flight": "1" },
+  });
+
+  expect(htmlResponse.headers.get("Content-Type")).toContain("text/html");
+  expect(varyTokens(htmlResponse)).toEqual(["accept", "x-flight"]);
+  expect(rscResponse.headers.get("Content-Type")).toContain("text/x-component");
+  expect(varyTokens(rscResponse)).toEqual(["accept", "x-flight"]);
+});
+
+test("rejects invalid custom Vary header field names", () => {
+  for (const varyHeader of ["", " ", "Bad Header", "Bad:Header"]) {
+    expect(() =>
+      rscRenderer(undefined, {
+        negotiation: {
+          isRscRequest: () => false,
+          varyHeaders: [varyHeader],
+        },
+      })
+    ).toThrow("Invalid Vary header field name");
+  }
+});
+
+test("rejects an empty custom Vary header list at runtime", () => {
+  expect(() =>
+    rscRenderer(undefined, {
+      negotiation: {
+        isRscRequest: () => false,
+        varyHeaders: [] as unknown as [string, ...string[]],
+      },
+    })
+  ).toThrow("Custom RSC negotiation requires at least one Vary header");
+});
+
+test("preserves an existing Vary wildcard unchanged", async () => {
+  const app = new Hono();
+
+  app.get(
+    "*",
+    rscRenderer(undefined, {
+      renderHtml: async (rscStream) => rscStream,
+      renderRsc: (node) => textStream(String(node)),
+    })
+  );
+  app.get("/", (c) => {
+    c.header("Vary", "*");
+    return c.render("content");
+  });
+
+  const response = await app.request("/");
+
+  expect(response.headers.get("Vary")).toBe("*");
 });
 
 test("defaults nonce-bearing HTML to private no-store", async () => {

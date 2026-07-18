@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.type-tests.json",
+  "compilerOptions": {
+    "paths": {
+      "@yoshikouki/hono-rsc-renderer": ["./dist/index.d.ts"]
+    }
+  },
+  "include": ["test/index.type-test.ts"]
+}

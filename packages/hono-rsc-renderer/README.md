@@ -36,6 +36,29 @@ app.get(
 app.get("/page/about", (c) => c.render(<AboutPage />));
 ```
 
+Renderer components receive the request `Context` as their second argument.
+Provide the app environment type to keep bindings and variables typed. The
+`Layout` prop is a props-only React component, so nested renderers compose with
+ordinary JSX:
+
+```tsx
+type AppEnv = {
+  Variables: {
+    userName: string;
+  };
+};
+
+app.get(
+  "/account/*",
+  rscRenderer<AppEnv>(({ children, Layout }, c) => (
+    <Layout>
+      <header>{c.var.userName}</header>
+      {children}
+    </Layout>
+  ))
+);
+```
+
 ## Content Security Policy Nonces
 
 Use `getNonce` to pass a request-scoped CSP nonce through the SSR environment.
@@ -114,6 +137,70 @@ RSC: 1
 Accept: text/x-component
 ```
 
+The default negotiation always emits `Vary: RSC, Accept`. Custom negotiation is
+configured as one contract so its predicate cannot be separated from the
+headers used by shared caches:
+
+```tsx
+app.get(
+  "*",
+  rscRenderer(undefined, {
+    negotiation: {
+      isRscRequest: (c) => c.req.header("X-Flight") === "1",
+      varyHeaders: ["X-Flight"],
+    },
+  })
+);
+```
+
+`varyHeaders` must contain at least one entry and every request header read by
+`isRscRequest`. The renderer enforces the non-empty requirement at runtime,
+validates each name as an HTTP field-name token when the middleware is created,
+removes case-insensitive duplicates, and merges the result into an existing
+`Vary` response header. An existing `Vary: *` is preserved unchanged.
+
+## Rendering Errors
+
+Renderer components and promised children are evaluated by the React RSC
+runtime. This preserves React streaming and error semantics instead of resolving
+the entire layout before rendering starts.
+
+Rendering can continue after the HTTP response has started, so these errors are
+not guaranteed to reach Hono's `app.onError()`. Use `onError` for request-scoped
+logging and reporting:
+
+```tsx
+app.get(
+  "*",
+  rscRenderer(
+    ({ children }) => <html><body>{children}</body></html>,
+    {
+      onError: (error, c) => {
+        reportRenderError(error, {
+          method: c.req.method,
+          path: c.req.path,
+        });
+      },
+    }
+  )
+);
+```
+
+Do not rely on `onError` to replace an already-started response. Authentication,
+authorization, redirects, and other failures that must choose an HTTP status
+belong in Hono middleware or route handlers before `c.render()`.
+
+Custom `renderRsc` implementations receive an unevaluated React tree plus the
+request, abort signal, and error callback. They must render that tree rather than
+coercing it with `String(node)`:
+
+```tsx
+rscRenderer(component, {
+  renderRsc: (node, { signal, onError }) =>
+    renderToReadableStream(node, { signal, onError }),
+});
+```
+
 ## Vite Setup
 
 Use `@vitejs/plugin-rsc` and provide two explicit build entries:
@@ -158,18 +245,40 @@ environment.
 
 ## Type Augmentation
 
-The package augments Hono's `ContextRenderer` with a default RSC signature. Apps
-can extend it further when layout props need stricter types:
+The package augments Hono's `ContextRenderer` with a React-node signature. Apps
+define their render props by augmenting `RscRenderProps`:
 
 ```ts
-declare module "hono" {
-  interface ContextRenderer {
-    (
-      content: React.ReactNode | Promise<React.ReactNode>,
-      props?: { title?: string }
-    ): Response | Promise<Response>;
+import "@yoshikouki/hono-rsc-renderer";
+
+declare module "@yoshikouki/hono-rsc-renderer" {
+  interface RscRenderProps {
+    title?: string;
   }
 }
+```
+
+The merged interface is shared by `c.render()` props, renderer component props,
+and nested `Layout` props. Undeclared keys are rejected:
+
+```tsx
+c.render(<AboutPage />, { title: "About" });
+c.render(<AboutPage />, { titel: "About" }); // TypeScript error
+```
+
+Without augmentation, `c.render(content)` and `c.render(content, {})` remain
+valid, but arbitrary objects and primitive props are rejected. If an augmented
+property is required, the props argument becomes required as well:
+
+```ts
+declare module "@yoshikouki/hono-rsc-renderer" {
+  interface RscRenderProps {
+    title: string;
+  }
+}
+
+c.render(<AboutPage />, { title: "About" });
+c.render(<AboutPage />); // TypeScript error
 ```
 
 ## Adoption Checklist
@@ -188,6 +297,8 @@ declare module "hono" {
   Flight responses by default.
 - If a CDN strips custom request headers, either allow the `RSC` header through
   or rely on `Accept: text/x-component` and include `Accept` in the cache key.
+- When overriding Flight negotiation, declare the predicate and every matching
+  `Vary` header together in `negotiation`.
 - Do not cache HTML and Flight under the same cache key. That can serve Flight
   payloads to document requests or HTML documents to RSC clients.
 - Add tests that request the same URL once as HTML and once with `RSC: 1` /

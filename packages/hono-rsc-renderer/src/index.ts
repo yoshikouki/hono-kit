@@ -2,41 +2,73 @@ import type { Context, Env, MiddlewareHandler } from "hono";
 import { createElement, Fragment } from "react";
 import type { ReactNode } from "react";
 
+declare const rscRenderPropsMarker: unique symbol;
+
 export interface RscRenderProps {
-  [key: string]: unknown;
+  /** @internal Keeps the unaugmented interface from accepting arbitrary values. */
+  [rscRenderPropsMarker]?: never;
+}
+
+export interface RscLayoutProps extends RscRenderProps {
+  children?: ReactNode;
+}
+
+export type RscLayout = (
+  props: RscLayoutProps
+) => ReactNode | Promise<ReactNode>;
+
+export interface RscRendererComponentProps extends RscLayoutProps {
+  Layout: RscLayout;
+}
+
+export type RscRendererComponent<E extends Env = Env> = (
+  props: RscRendererComponentProps,
+  c: Context<E>
+) => ReactNode | Promise<ReactNode>;
+
+export interface RscRequestNegotiation<E extends Env = Env> {
+  isRscRequest: (c: Context<E>) => boolean;
+  varyHeaders: readonly [string, ...string[]];
 }
 
 export interface RscRendererOptions<E extends Env = Env> {
   getNonce?: (c: Context<E>) => string | undefined;
-  isRscRequest?: (c: Context<E>) => boolean;
+  negotiation?: RscRequestNegotiation<E>;
+  onError?: (error: unknown, c: Context<E>) => void;
   renderHtml?: RenderHtml;
   renderRsc?: RenderRsc;
-  varyHeaders?: string[];
 }
 
-export type RscLayout = (
-  props: RscRenderProps & {
-    children?: ReactNode;
-    Layout: RscLayout;
-  },
-  c: Context
-) => ReactNode | Promise<ReactNode>;
+export interface RenderRscOptions {
+  onError?: (error: unknown) => void;
+  request: Request;
+  signal: AbortSignal;
+}
+
+export interface RenderHtmlOptions extends RenderRscOptions {
+  nonce?: string;
+}
 
 export type RenderHtml = (
   rscStream: ReadableStream<Uint8Array>,
-  options: { nonce?: string; request: Request; signal: AbortSignal }
+  options: RenderHtmlOptions
 ) => Promise<ReadableStream<Uint8Array>>;
 
 export type RenderRsc = (
-  node: ReactNode
+  node: ReactNode,
+  options: RenderRscOptions
 ) => ReadableStream<Uint8Array> | Promise<ReadableStream<Uint8Array>>;
+
+type RscRenderPropsArgument = Record<never, never> extends RscRenderProps
+  ? [props?: RscRenderProps]
+  : [props: RscRenderProps];
 
 declare module "hono" {
   interface ContextRenderer {
     // biome-ignore lint/style/useShorthandFunctionType: Hono exposes ContextRenderer as an augmentable interface.
     (
-      content: ReactNode | Promise<ReactNode>,
-      props?: RscRenderProps
+      content: ReactNode,
+      ...props: RscRenderPropsArgument
     ): Response | Promise<Response>;
   }
 }
@@ -45,14 +77,15 @@ const HTML_CONTENT_TYPE = "text/html;charset=utf-8";
 const RSC_CONTENT_TYPE = "text/x-component;charset=utf-8";
 const RSC_CACHE_CONTROL = "private, no-store";
 const NONCE_HTML_CACHE_CONTROL = "private, no-store";
-const DEFAULT_VARY_HEADERS = ["RSC", "Accept"];
+const DEFAULT_VARY_HEADERS = ["RSC", "Accept"] as const;
+const HTTP_FIELD_NAME_PATTERN = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
 
 const DEFAULT_LAYOUT: RscLayout = ({ children }) =>
   createElement(Fragment, null, children);
 
 async function defaultRenderHtml(
   rscStream: ReadableStream<Uint8Array>,
-  options: { nonce?: string; request: Request; signal: AbortSignal }
+  options: RenderHtmlOptions
 ): Promise<ReadableStream<Uint8Array>> {
   // import.meta.viteRsc.import is statically transformed by @vitejs/plugin-rsc.
   const ssrEntry = await import.meta.viteRsc.import<
@@ -60,22 +93,31 @@ async function defaultRenderHtml(
   >("./entry.ssr", { environment: "ssr" });
   return ssrEntry.renderHtml(rscStream, {
     nonce: options.nonce,
+    onError: options.onError,
     signal: options.signal,
   });
 }
 
 async function defaultRenderRsc(
-  node: ReactNode
+  node: ReactNode,
+  options: RenderRscOptions
 ): Promise<ReadableStream<Uint8Array>> {
   const { renderToReadableStream } = await import("@vitejs/plugin-rsc/rsc");
-  return renderToReadableStream(node);
+  return renderToReadableStream(node, {
+    onError: options.onError,
+    signal: options.signal,
+  });
 }
 
-function appendVary(headers: Headers, names: string[]): void {
-  const existing = (headers.get("Vary") ?? "")
+function appendVary(headers: Headers, names: readonly string[]): void {
+  const currentValue = headers.get("Vary") ?? "";
+  const existing = currentValue
     .split(",")
     .map((name) => name.trim())
     .filter(Boolean);
+  if (existing.includes("*")) {
+    return;
+  }
   const normalized = new Set(existing.map((name) => name.toLowerCase()));
   for (const name of names) {
     const trimmedName = name.trim();
@@ -88,6 +130,31 @@ function appendVary(headers: Headers, names: string[]): void {
   headers.set("Vary", existing.join(", "));
 }
 
+function normalizeVaryHeaders(
+  names: readonly [string, ...string[]]
+): readonly [string, ...string[]] {
+  if (names.length === 0) {
+    throw new TypeError("Custom RSC negotiation requires at least one Vary header");
+  }
+
+  const normalizedNames: string[] = [];
+  const seenNames = new Set<string>();
+
+  for (const name of names) {
+    if (!HTTP_FIELD_NAME_PATTERN.test(name)) {
+      throw new TypeError(`Invalid Vary header field name: ${JSON.stringify(name)}`);
+    }
+
+    const normalizedName = name.toLowerCase();
+    if (!seenNames.has(normalizedName)) {
+      normalizedNames.push(name);
+      seenNames.add(normalizedName);
+    }
+  }
+
+  return normalizedNames as [string, ...string[]];
+}
+
 function defaultIsRscRequest(c: Context): boolean {
   const accept = c.req.header("Accept") ?? "";
   return c.req.header("RSC") === "1" || accept.includes("text/x-component");
@@ -96,7 +163,7 @@ function defaultIsRscRequest(c: Context): boolean {
 function htmlResponse(
   c: Context,
   stream: ReadableStream<Uint8Array>,
-  varyHeaders: string[],
+  varyHeaders: readonly string[],
   nonce: string | undefined
 ): Response {
   const response = c.body(stream, {
@@ -112,7 +179,7 @@ function htmlResponse(
 function rscResponse(
   c: Context,
   stream: ReadableStream<Uint8Array>,
-  varyHeaders: string[]
+  varyHeaders: readonly string[]
 ): Response {
   const response = c.body(stream, {
     headers: { "Content-Type": RSC_CONTENT_TYPE },
@@ -127,21 +194,34 @@ function rscResponse(
 function createRenderer<E extends Env>(
   c: Context<E>,
   Layout: RscLayout,
-  component: RscLayout | undefined,
-  options: Required<RscRendererOptions<E>>
+  component: RscRendererComponent<E> | undefined,
+  options: ResolvedRscRendererOptions<E>
 ) {
   return async (
-    children: ReactNode | Promise<ReactNode>,
-    props: RscRenderProps = {}
+    children: ReactNode,
+    ...propsArgument: RscRenderPropsArgument
   ): Promise<Response> => {
-    const resolvedChildren = await children;
+    const [props] = propsArgument;
+    const onErrorHandler = options.onError;
+    const onError = onErrorHandler
+      ? (error: unknown) => onErrorHandler(error, c)
+      : undefined;
     const node = component
-      ? await component({ ...props, Layout, children: resolvedChildren }, c)
-      : resolvedChildren;
-    const rscStream = await options.renderRsc(node);
+      ? createElement(
+          (componentProps: RscRendererComponentProps) =>
+            component(componentProps, c),
+          { ...props, Layout } as RscRendererComponentProps,
+          children
+        )
+      : children;
+    const rscStream = await options.renderRsc(node, {
+      onError,
+      request: c.req.raw,
+      signal: c.req.raw.signal,
+    });
 
-    if (options.isRscRequest(c)) {
-      return rscResponse(c, rscStream, options.varyHeaders);
+    if (options.negotiation.isRscRequest(c)) {
+      return rscResponse(c, rscStream, options.negotiation.varyHeaders);
     }
 
     const nonce = options.getNonce(c);
@@ -149,28 +229,45 @@ function createRenderer<E extends Env>(
       c,
       await options.renderHtml(rscStream, {
         nonce,
+        onError,
         request: c.req.raw,
         signal: c.req.raw.signal,
       }),
-      options.varyHeaders,
+      options.negotiation.varyHeaders,
       nonce
     );
   };
 }
 
+interface ResolvedRscRendererOptions<E extends Env> {
+  getNonce: (c: Context<E>) => string | undefined;
+  negotiation: RscRequestNegotiation<E>;
+  onError?: (error: unknown, c: Context<E>) => void;
+  renderHtml: RenderHtml;
+  renderRsc: RenderRsc;
+}
+
 export function rscRenderer<
   E extends Env = Env,
 >(
-  component?: RscLayout,
+  component?: RscRendererComponent<E>,
   options: RscRendererOptions<E> = {}
 ): MiddlewareHandler<E> {
+  const requestedNegotiation = options.negotiation ?? {
+    isRscRequest: defaultIsRscRequest,
+    varyHeaders: DEFAULT_VARY_HEADERS,
+  };
+  const negotiation = {
+    ...requestedNegotiation,
+    varyHeaders: normalizeVaryHeaders(requestedNegotiation.varyHeaders),
+  } satisfies RscRequestNegotiation<E>;
   const resolvedOptions = {
     getNonce: options.getNonce ?? (() => undefined),
-    isRscRequest: options.isRscRequest ?? defaultIsRscRequest,
+    negotiation,
+    onError: options.onError,
     renderHtml: options.renderHtml ?? defaultRenderHtml,
     renderRsc: options.renderRsc ?? defaultRenderRsc,
-    varyHeaders: options.varyHeaders ?? DEFAULT_VARY_HEADERS,
-  } satisfies Required<RscRendererOptions<E>>;
+  } satisfies ResolvedRscRendererOptions<E>;
 
   return (c, next) => {
     const currentLayout = (c.getLayout() ?? DEFAULT_LAYOUT) as RscLayout;

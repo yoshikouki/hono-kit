@@ -7,8 +7,9 @@
   "types": "./dist/index.d.ts",
   "files": ["dist"],
   "scripts": {
-    "build": "rm -rf ./dist && bun build ./src/index.ts ./src/entry.ssr.ts ./src/entry.browser.ts --outdir ./dist --target browser --format esm --external hono --external react --external react-dom --external @vitejs/plugin-rsc && tsc -p tsconfig.json --emitDeclarationOnly",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "rm -rf ./dist && bun build ./src/index.ts ./src/entry.ssr.ts ./src/entry.browser.ts --outdir ./dist --target browser --format esm --external hono --external react --external react-dom --external @vitejs/plugin-rsc && tsc -p tsconfig.json --emitDeclarationOnly && bun run typecheck:dist",
+    "typecheck": "tsc -p tsconfig.type-tests.json && tsc -p tsconfig.type-tests.no-augmentation.json && tsc -p tsconfig.type-tests.required-props.json",
+    "typecheck:dist": "tsc -p tsconfig.dist-type-tests.json && tsc -p tsconfig.dist-type-tests.no-augmentation.json && tsc -p tsconfig.dist-type-tests.required-props.json",
     "test": "bun test"
   },
   "exports": {
