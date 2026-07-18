@@ -166,7 +166,7 @@ test("keeps custom RSC negotiation and Vary headers in one contract", async () =
     rscRenderer(undefined, {
       negotiation: {
         isRscRequest: (c) => c.req.header("X-Flight") === "1",
-        varyHeaders: ["X-Flight"],
+        varyHeaders: ["X-Flight", "x-flight", "Accept"],
       },
       renderHtml: async (rscStream) => rscStream,
       renderRsc: (node) => textStream(String(node)),
@@ -180,9 +180,42 @@ test("keeps custom RSC negotiation and Vary headers in one contract", async () =
   });
 
   expect(htmlResponse.headers.get("Content-Type")).toContain("text/html");
-  expect(varyTokens(htmlResponse)).toEqual(["x-flight"]);
+  expect(varyTokens(htmlResponse)).toEqual(["accept", "x-flight"]);
   expect(rscResponse.headers.get("Content-Type")).toContain("text/x-component");
-  expect(varyTokens(rscResponse)).toEqual(["x-flight"]);
+  expect(varyTokens(rscResponse)).toEqual(["accept", "x-flight"]);
+});
+
+test("rejects invalid custom Vary header field names", () => {
+  for (const varyHeader of ["", " ", "Bad Header", "Bad:Header"]) {
+    expect(() =>
+      rscRenderer(undefined, {
+        negotiation: {
+          isRscRequest: () => false,
+          varyHeaders: [varyHeader],
+        },
+      })
+    ).toThrow("Invalid Vary header field name");
+  }
+});
+
+test("preserves an existing Vary wildcard unchanged", async () => {
+  const app = new Hono();
+
+  app.get(
+    "*",
+    rscRenderer(undefined, {
+      renderHtml: async (rscStream) => rscStream,
+      renderRsc: (node) => textStream(String(node)),
+    })
+  );
+  app.get("/", (c) => {
+    c.header("Vary", "*");
+    return c.render("content");
+  });
+
+  const response = await app.request("/");
+
+  expect(response.headers.get("Vary")).toBe("*");
 });
 
 test("defaults nonce-bearing HTML to private no-store", async () => {

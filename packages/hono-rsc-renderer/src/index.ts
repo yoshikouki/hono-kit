@@ -78,6 +78,7 @@ const RSC_CONTENT_TYPE = "text/x-component;charset=utf-8";
 const RSC_CACHE_CONTROL = "private, no-store";
 const NONCE_HTML_CACHE_CONTROL = "private, no-store";
 const DEFAULT_VARY_HEADERS = ["RSC", "Accept"] as const;
+const HTTP_FIELD_NAME_PATTERN = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
 
 const DEFAULT_LAYOUT: RscLayout = ({ children }) =>
   createElement(Fragment, null, children);
@@ -109,10 +110,14 @@ async function defaultRenderRsc(
 }
 
 function appendVary(headers: Headers, names: readonly string[]): void {
-  const existing = (headers.get("Vary") ?? "")
+  const currentValue = headers.get("Vary") ?? "";
+  const existing = currentValue
     .split(",")
     .map((name) => name.trim())
     .filter(Boolean);
+  if (existing.includes("*")) {
+    return;
+  }
   const normalized = new Set(existing.map((name) => name.toLowerCase()));
   for (const name of names) {
     const trimmedName = name.trim();
@@ -123,6 +128,27 @@ function appendVary(headers: Headers, names: readonly string[]): void {
     }
   }
   headers.set("Vary", existing.join(", "));
+}
+
+function normalizeVaryHeaders(
+  names: readonly [string, ...string[]]
+): readonly [string, ...string[]] {
+  const normalizedNames: string[] = [];
+  const seenNames = new Set<string>();
+
+  for (const name of names) {
+    if (!HTTP_FIELD_NAME_PATTERN.test(name)) {
+      throw new TypeError(`Invalid Vary header field name: ${JSON.stringify(name)}`);
+    }
+
+    const normalizedName = name.toLowerCase();
+    if (!seenNames.has(normalizedName)) {
+      normalizedNames.push(name);
+      seenNames.add(normalizedName);
+    }
+  }
+
+  return normalizedNames as [string, ...string[]];
 }
 
 function defaultIsRscRequest(c: Context): boolean {
@@ -223,10 +249,14 @@ export function rscRenderer<
   component?: RscRendererComponent<E>,
   options: RscRendererOptions<E> = {}
 ): MiddlewareHandler<E> {
-  const negotiation = options.negotiation ?? {
+  const requestedNegotiation = options.negotiation ?? {
     isRscRequest: defaultIsRscRequest,
     varyHeaders: DEFAULT_VARY_HEADERS,
   };
+  const negotiation = {
+    ...requestedNegotiation,
+    varyHeaders: normalizeVaryHeaders(requestedNegotiation.varyHeaders),
+  } satisfies RscRequestNegotiation<E>;
   const resolvedOptions = {
     getNonce: options.getNonce ?? (() => undefined),
     negotiation,
