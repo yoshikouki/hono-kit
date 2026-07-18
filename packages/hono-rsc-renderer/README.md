@@ -153,10 +153,11 @@ app.get(
 );
 ```
 
-`varyHeaders` must contain every request header read by `isRscRequest`. The
-renderer validates each name as an HTTP field-name token when the middleware is
-created, removes case-insensitive duplicates, and merges the result into an
-existing `Vary` response header. An existing `Vary: *` is preserved unchanged.
+`varyHeaders` must contain at least one entry and every request header read by
+`isRscRequest`. The renderer enforces the non-empty requirement at runtime,
+validates each name as an HTTP field-name token when the middleware is created,
+removes case-insensitive duplicates, and merges the result into an existing
+`Vary` response header. An existing `Vary: *` is preserved unchanged.
 
 ## Rendering Errors
 

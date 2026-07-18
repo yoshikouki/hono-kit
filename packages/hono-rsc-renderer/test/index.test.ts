@@ -198,6 +198,17 @@ test("rejects invalid custom Vary header field names", () => {
   }
 });
 
+test("rejects an empty custom Vary header list at runtime", () => {
+  expect(() =>
+    rscRenderer(undefined, {
+      negotiation: {
+        isRscRequest: () => false,
+        varyHeaders: [] as unknown as [string, ...string[]],
+      },
+    })
+  ).toThrow("Custom RSC negotiation requires at least one Vary header");
+});
+
 test("preserves an existing Vary wildcard unchanged", async () => {
   const app = new Hono();
 

@@ -133,6 +133,10 @@ function appendVary(headers: Headers, names: readonly string[]): void {
 function normalizeVaryHeaders(
   names: readonly [string, ...string[]]
 ): readonly [string, ...string[]] {
+  if (names.length === 0) {
+    throw new TypeError("Custom RSC negotiation requires at least one Vary header");
+  }
+
   const normalizedNames: string[] = [];
   const seenNames = new Set<string>();
 
