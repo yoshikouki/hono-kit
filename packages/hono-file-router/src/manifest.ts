@@ -12,18 +12,15 @@ import type {
 } from "./types";
 import { validatedHonoApp } from "./hono-route";
 import {
+  assertNoRegistrationCollisions,
+  type CollisionRegistration,
+} from "./registration-plan";
+import {
   honoFilePathConvention,
   hasDynamicRouteSegments,
   routeFileToManifestPath,
-  routePathToShape,
   sortRoutesBySpecificity,
 } from "./route-path";
-
-interface RegisteredRoutePath {
-  generated?: boolean;
-  path: string;
-  source: string;
-}
 
 function toLoader<TModule>(value: GlobValue<TModule>): () => Promise<TModule> {
   return async () => {
@@ -72,40 +69,6 @@ function isIgnoredRouteFile<
   return Boolean(source.ignore?.(file) || convention.ignore?.(file));
 }
 
-function generatedRoutesConflict(
-  a: RegisteredRoutePath,
-  b: RegisteredRoutePath
-): boolean {
-  return (a.generated === true || b.generated === true) && a.path === b.path;
-}
-
-function assertNoGeneratedCollision(
-  candidate: RegisteredRoutePath,
-  registered: RegisteredRoutePath[]
-): void {
-  const collision = registered.find((entry) =>
-    generatedRoutesConflict(candidate, entry)
-  );
-  if (collision) {
-    throw new Error(
-      `Duplicate route "${candidate.path}": ${collision.source} and ${candidate.source}`
-    );
-  }
-}
-
-function assertUniquePrimaryRoute(
-  primaryShapes: Map<string, string>,
-  path: string,
-  source: string
-): void {
-  const shape = routePathToShape(path);
-  const duplicate = primaryShapes.get(shape);
-  if (duplicate) {
-    throw new Error(`Duplicate route "${path}": ${duplicate} and ${source}`);
-  }
-  primaryShapes.set(shape, source);
-}
-
 export function createRouteManifest<
   E extends Env = Env,
 >(
@@ -122,8 +85,7 @@ export function createRouteManifest<
 
   const generatedRoutes: ManifestGeneratedRoute<E>[] = [];
   const handlers: HonoRoute<E>[] = [];
-  const primaryShapes = new Map<string, string>();
-  const registered: RegisteredRoutePath[] = [];
+  const registrations: CollisionRegistration[] = [];
   const renderers: FileRouteRenderer<E>[] = [];
   const routes: FileRoute[] = [];
 
@@ -155,26 +117,22 @@ export function createRouteManifest<
           );
         }
         routes.push(route);
-
-        assertUniquePrimaryRoute(primaryShapes, route.path, file);
-
-        const primaryEntry = {
+        registrations.push({
+          kind: "renderer",
+          method: "GET",
           path: route.path,
           source: file,
-        };
-        assertNoGeneratedCollision(primaryEntry, registered);
-        registered.push(primaryEntry);
+        });
 
         for (const generatedRoute of source.renderer.generatedRoutes?.(route) ??
           []) {
-          const generatedEntry = {
-            generated: true,
+          registrations.push({
+            kind: "generated",
+            method: generatedRoute.method ?? "GET",
             path: generatedRoute.path,
             source: `${file} generated route ${generatedRoute.path}`,
-          };
-          assertNoGeneratedCollision(generatedEntry, registered);
+          });
           generatedRoutes.push({ ...generatedRoute, owner: route.id });
-          registered.push(generatedEntry);
         }
         continue;
       }
@@ -185,19 +143,16 @@ export function createRouteManifest<
         module: validatedHonoApp<E>(value, file),
         path: manifestPath.path,
       };
-
-      assertUniquePrimaryRoute(primaryShapes, handler.path, file);
-
-      const handlerEntry = {
+      registrations.push({
+        kind: "hono",
         path: handler.path,
         source: file,
-      };
-      assertNoGeneratedCollision(handlerEntry, registered);
+      });
       handlers.push(handler);
-      registered.push(handlerEntry);
     }
   }
 
+  assertNoRegistrationCollisions(registrations);
   const sortedHandlers = sortRoutesBySpecificity(handlers);
   const sortedRoutes = sortRoutesBySpecificity(routes);
 

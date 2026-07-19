@@ -5,7 +5,6 @@ export {
   honoFilePathConvention,
   pathnameFromRoutePath,
   routeFileToManifestPath,
-  routePathsOverlap,
   routePathToShape,
   sortRoutesBySpecificity,
 } from "./route-path";

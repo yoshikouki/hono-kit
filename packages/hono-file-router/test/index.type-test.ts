@@ -155,3 +155,7 @@ String(input.generatedRoute);
 export type RemovedMatchedRoute = import("@yoshikouki/hono-file-router").MatchedRoute;
 // @ts-expect-error RouteParams was removed in favor of c.req.param().
 export type RemovedRouteParams = import("@yoshikouki/hono-file-router").RouteParams;
+// @ts-expect-error Route grammar validation remains internal to manifest/plan compilation.
+export type RemovedAssertSupportedRoutePath = typeof import("@yoshikouki/hono-file-router").assertSupportedRoutePath;
+// @ts-expect-error Route ordering remains internal to registration-plan compilation.
+export type RemovedCompareRouteSpecificity = typeof import("@yoshikouki/hono-file-router").compareRouteSpecificity;
