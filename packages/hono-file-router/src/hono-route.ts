@@ -1,5 +1,5 @@
-import { Hono } from "hono";
-import type { Env } from "hono";
+import type { Env, Hono } from "hono";
+import { HonoBase } from "hono/hono-base";
 import type { HonoRouteModule } from "./types";
 
 export function validatedHonoApp<E extends Env>(
@@ -17,7 +17,7 @@ export function validatedHonoApp<E extends Env>(
       ? (value as HonoRouteModule<E>).default
       : value;
 
-  if (!(candidate instanceof Hono)) {
+  if (!(candidate instanceof HonoBase)) {
     throw new Error(`Hono route module ${file} must export a Hono app.`);
   }
   if (candidate.routes.length === 0) {

@@ -1,5 +1,7 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
+import { Hono as QuickHono } from "hono/quick";
+import { Hono as TinyHono } from "hono/tiny";
 import {
   type CreateFileRouterOptions,
   createFileRouter,
@@ -92,6 +94,27 @@ typedRoute.get("/", (c) => {
 });
 createFileRouter<AppEnv>({
   sources: [{ files: { "./users/[id].ts": { default: typedRoute } } }],
+});
+
+const quickDirect = new QuickHono<AppEnv>();
+quickDirect.get("/", (c) => c.text(c.var.userId));
+const quickModule = new QuickHono<AppEnv>();
+quickModule.get("/", (c) => c.text(c.env.prefix));
+const tinyDirect = new TinyHono<AppEnv>();
+tinyDirect.get("/", (c) => c.text(c.var.userId));
+const tinyModule = new TinyHono<AppEnv>();
+tinyModule.get("/", (c) => c.text(c.env.prefix));
+createFileRouter<AppEnv>({
+  sources: [
+    {
+      files: {
+        "./quick-direct.ts": quickDirect,
+        "./quick-module.ts": { default: quickModule },
+        "./tiny-direct.ts": tinyDirect,
+        "./tiny-module.ts": { default: tinyModule },
+      },
+    },
+  ],
 });
 
 // @ts-expect-error Hono route-source modules must be eager.

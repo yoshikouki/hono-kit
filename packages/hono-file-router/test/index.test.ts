@@ -1,6 +1,8 @@
 import { expect, test } from "bun:test";
 import { Hono } from "hono";
 import type { Context } from "hono";
+import { Hono as QuickHono } from "hono/quick";
+import { Hono as TinyHono } from "hono/tiny";
 import {
   createFileRouter,
   createRouteManifest,
@@ -573,6 +575,55 @@ test("accepts eager root-only Hono modules with methods and handler chains", asy
     await (await app.request("/api", { method: "POST" })).text()
   ).toBe("handled:post");
   expect(await (await app.request("/direct")).text()).toBe("all:GET");
+});
+
+test("accepts direct and default-export apps from official Hono presets", async () => {
+  const quickDirect = new QuickHono();
+  quickDirect.get("/", (c) => c.text("quick-direct"));
+  const quickModule = new QuickHono();
+  quickModule.get("/", (c) => c.text("quick-module"));
+  const tinyDirect = new TinyHono();
+  tinyDirect.get("/", (c) => c.text("tiny-direct"));
+  const tinyModule = new TinyHono();
+  tinyModule.get("/", (c) => c.text("tiny-module"));
+
+  const app = createFileRouter({
+    sources: [
+      {
+        files: {
+          "./quick-direct.ts": quickDirect,
+          "./quick-module.ts": { default: quickModule },
+          "./tiny-direct.ts": tinyDirect,
+          "./tiny-module.ts": { default: tinyModule },
+        },
+      },
+    ],
+  });
+
+  expect(await (await app.request("/quick-direct")).text()).toBe(
+    "quick-direct"
+  );
+  expect(await (await app.request("/quick-module")).text()).toBe(
+    "quick-module"
+  );
+  expect(await (await app.request("/tiny-direct")).text()).toBe("tiny-direct");
+  expect(await (await app.request("/tiny-module")).text()).toBe("tiny-module");
+});
+
+test("rejects fetch-only route objects", () => {
+  expect(() =>
+    createRouteManifest({
+      sources: [
+        {
+          files: {
+            "./like.ts": {
+              fetch: () => new Response("not a Hono app"),
+            } as unknown as Hono,
+          },
+        },
+      ],
+    })
+  ).toThrow(/must export a Hono app/);
 });
 
 test("passes params to nested dynamic Hono route modules", async () => {
