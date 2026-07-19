@@ -1,4 +1,4 @@
-import type { Context, Env } from "hono";
+import type { Context, Env, Hono } from "hono";
 import type { HonoOptions } from "hono/hono-base";
 
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "ALL";
@@ -80,19 +80,16 @@ export interface FileRouteRenderer<
   ) => Response | Promise<Response>;
 }
 
-export interface HonoRouteModule {
-  default?: HonoLikeApp;
+export interface HonoRouteModule<E extends Env = Env> {
+  default: Hono<E>;
 }
 
-export interface HonoLikeApp {
-  fetch: (request: Request, env?: unknown) => Response | Promise<Response>;
-}
+export type HonoRouteSource<E extends Env = Env> = Hono<E> | HonoRouteModule<E>;
 
-export interface HonoRoute<TModule = unknown> {
+export interface HonoRoute<E extends Env = Env> {
   file: string;
   id: string;
-  load: () => Promise<TModule>;
-  module?: TModule;
+  module: Hono<E>;
   path: string;
 }
 
@@ -107,9 +104,9 @@ export interface RendererSource<
   renderer: FileRouteRenderer<E, TModule, TData>;
 }
 
-export interface HonoRoutesSource<TModule = unknown> {
+export interface HonoRoutesSource<E extends Env = Env> {
   dynamicRoutes?: boolean;
-  files: GlobFiles<TModule>;
+  files: Record<string, HonoRouteSource<E>>;
   ignore?: RouteFileIgnore;
   renderer?: never;
 }
@@ -120,7 +117,7 @@ export type RouteSource<
   TData = unknown,
 > =
   | RendererSource<E, TModule, TData>
-  | HonoRoutesSource<TModule>;
+  | HonoRoutesSource<E>;
 
 export type AnyRouteSource<E extends Env = Env> = RouteSource<
   E,
@@ -147,7 +144,7 @@ export interface RouteManifest<
   TData = unknown,
 > {
   generatedRoutes: GeneratedRoute<E, TModule, TData>[];
-  handlers: HonoRoute<TModule>[];
+  handlers: HonoRoute<E>[];
   renderers: FileRouteRenderer<E, TModule, TData>[];
   routes: FileRoute<TModule, TData>[];
 }

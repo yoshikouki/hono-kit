@@ -33,18 +33,24 @@ but the normalized file keys are passed into this package explicitly.
 
 ## Usage
 
-Pass discovered route modules to `createFileRouter()`. Each Hono route module
-must default export a Hono router. A source without `renderer` is treated as a
-Hono route module source.
+Pass discovered route modules to `createFileRouter()`. A source without a
+`renderer` is treated as a Hono route-module source. Its values must be eager
+`Hono` apps or modules whose default export is an eager `Hono` app.
 
 ```ts
 import { Hono } from "hono";
-import { createFileRouter } from "@yoshikouki/hono-file-router";
+import {
+  createFileRouter,
+  type HonoRouteSource,
+} from "@yoshikouki/hono-file-router";
 
 const fileBasedRoutes = createFileRouter({
   sources: [
     {
-      files: import.meta.glob("./**/*.ts", { base: "./routes" }),
+      files: import.meta.glob<HonoRouteSource>("./**/*.ts", {
+        base: "./routes",
+        eager: true,
+      }),
     },
   ],
 });
@@ -53,22 +59,51 @@ const app = new Hono();
 app.route("/", fileBasedRoutes);
 ```
 
-Use eager route modules when file-routed Hono routers depend on parent Hono
-context state such as `c.var`, `c.render()`, or middleware-provided helpers.
-Lazy route modules are useful for plain Hono handlers, but eager modules can be
-mounted directly into the parent Hono route graph.
+Eager loading is required because file-routed Hono apps are composed directly
+into the parent route graph with `app.route()`. This preserves parent middleware
+state, `c.var`, `c.render()`, params, `c.executionCtx`, and child `onError`
+behavior on the same Hono `Context`. A lazy glob fails during manifest creation
+with guidance to add `{ eager: true }`.
 
 ```ts
 const rscRoutes = createFileRouter({
   sources: [
     {
-      files: import.meta.glob("./**/*.{ts,tsx}", {
+      files: import.meta.glob<HonoRouteSource>("./**/*.{ts,tsx}", {
         base: "./routes",
         eager: true,
       }),
     },
   ],
 });
+```
+
+Each Hono route file owns one final route path. The child app must define at
+least one route, and every route entry must use the exact child path `"/"`.
+Multiple methods, exact-root `ALL` entries, and exact-root handler chains are
+supported:
+
+```ts
+// routes/users/[id].ts -> /users/:id
+const route = new Hono<AppEnv>();
+
+route.get("/", authMiddleware, (c) =>
+  c.json({ id: c.req.param("id"), user: c.var.user })
+);
+route.patch("/", updateUser);
+
+export default route;
+```
+
+Nested child paths, params, regexps, `"*"`, and `"/*"` are rejected. Put each
+nested endpoint in its corresponding route file instead. For an arbitrary Hono
+sub-app that intentionally owns a route subtree, keep it outside the file
+router and compose it explicitly at application level:
+
+```ts
+const app = new Hono<AppEnv>();
+app.route("/admin", adminApp);
+app.route("/", fileBasedRoutes);
 ```
 
 The default path convention supports `index`, `[id]`, `[...slug]`, and route
@@ -81,7 +116,10 @@ routeFileToManifestPath("./docs/(guides)/[...slug].ts");
 createRouteManifest({
   sources: [
     {
-      files: import.meta.glob("./routes/**/*.{ts,tsx}", { base: "./routes" }),
+      files: import.meta.glob("./routes/**/*.{ts,tsx}", {
+        base: "./routes",
+        eager: true,
+      }),
       ignore: (file) => file.split("/").includes("_components"),
     },
   ],
@@ -95,7 +133,10 @@ Add `ignore` on a source for app-specific non-route directories.
 createRouteManifest({
   sources: [
     {
-      files: import.meta.glob("./**/*.ts", { base: "./routes" }),
+      files: import.meta.glob("./**/*.ts", {
+        base: "./routes",
+        eager: true,
+      }),
       ignore: (file) =>
         file.split("/").includes("_components") || file.includes("_fixtures/"),
     },
@@ -133,7 +174,10 @@ app.onError((error, c) => c.text(error.message, 500));
 createFileRouter({
   sources: [
     {
-      files: import.meta.glob("./**/*.ts", { base: "./routes" }),
+      files: import.meta.glob("./**/*.ts", {
+        base: "./routes",
+        eager: true,
+      }),
       ignore: (file) => file.startsWith("_") || file.includes("/_"),
     },
   ],
@@ -143,8 +187,9 @@ createFileRouter({
 ## Manifest
 
 `createRouteManifest()` normalizes sources into a statically testable route
-manifest. The manifest contains primary `FileRoute` entries, plain Hono route
-module entries, and renderer-declared `GeneratedRoute` entries.
+manifest. The manifest contains primary `FileRoute` entries, validated eager
+root-only Hono route-module entries, and renderer-declared `GeneratedRoute`
+entries.
 
 `FileRoute` is deliberately small: it has a stable `id`, source `file`,
 Hono-compatible `path`, optional `load`, and optional package-owned `metadata`.

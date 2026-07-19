@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import type { Env, Handler } from "hono";
+import { validatedHonoApp } from "./hono-route";
 import { createRouteManifest } from "./manifest";
 import { sortRoutesBySpecificity } from "./route-path";
 import type {
@@ -8,8 +9,7 @@ import type {
   FileRouteRenderer,
   FileRouterInput,
   GeneratedRoute,
-  HonoLikeApp,
-  HonoRouteModule,
+  HonoRoute,
   MountFileRoutesOptions,
   RouteManifest,
 } from "./types";
@@ -82,59 +82,10 @@ function registerGeneratedRoute<E extends Env>(
   }
 }
 
-function honoAppFromModule(module: unknown): HonoLikeApp {
-  const candidate =
-    module && typeof module === "object" && "default" in module
-      ? (module as HonoRouteModule).default
-      : module;
-
-  if (!candidate || typeof (candidate as HonoLikeApp).fetch !== "function") {
-    throw new Error("Hono route modules must default export a Hono app.");
-  }
-
-  return candidate as HonoLikeApp;
-}
-
-function stripMountPath(pathname: string, mountPath: string): string {
-  if (mountPath === "/") {
-    return pathname;
-  }
-  if (pathname === mountPath) {
-    return "/";
-  }
-  if (pathname.startsWith(`${mountPath}/`)) {
-    return pathname.slice(mountPath.length) || "/";
-  }
-  return pathname;
-}
-
-function requestForMount(request: Request, mountPath: string): Request {
-  const url = new URL(request.url);
-  url.pathname = stripMountPath(url.pathname, mountPath);
-  return new Request(url, request);
-}
-
-function isRoutableHonoApp(
-  value: HonoLikeApp
-): value is HonoLikeApp & { routes: unknown[] } {
-  return Array.isArray((value as { routes?: unknown }).routes);
-}
-
-function mountedHonoApp<E extends Env>(
-  mountPath: string,
-  routeApp: HonoLikeApp
-): HonoLikeApp {
-  if (!isRoutableHonoApp(routeApp)) {
-    return {
-      fetch: (request, env) =>
-        routeApp.fetch(requestForMount(request, mountPath), env),
-    };
-  }
-
-  const mounted = new Hono<E>();
-  mounted.route(mountPath, routeApp as unknown as Hono<E>);
+function validateHonoRoute<E extends Env>(route: HonoRoute<E>): HonoRoute<E> {
   return {
-    fetch: (request, env) => mounted.fetch(request, env as E["Bindings"]),
+    ...route,
+    module: validatedHonoApp<E>(route.module, route.file),
   };
 }
 
@@ -147,6 +98,7 @@ export function mountFileRoutes<
   options: MountFileRoutesOptions<E, TModule, TData>
 ): Hono<E> {
   const manifest = resolveManifest(options);
+  const handlerRoutes = manifest.handlers.map(validateHonoRoute);
 
   const routesById = new Map(manifest.routes.map((route) => [route.id, route]));
   const mountableRoutes: MountableRoute[] = manifest.routes.map((route) => ({
@@ -183,28 +135,8 @@ export function mountFileRoutes<
     route.register();
   }
 
-  for (const handlerRoute of manifest.handlers) {
-    if (handlerRoute.module) {
-      const routeApp = honoAppFromModule(handlerRoute.module);
-      if (isRoutableHonoApp(routeApp)) {
-        app.route(handlerRoute.path, routeApp as unknown as Hono<E>);
-        continue;
-      }
-    }
-
-    let mountedApp: HonoLikeApp | undefined;
-    const handler: Handler<E> = async (c) => {
-      if (!mountedApp) {
-        const module = await handlerRoute.load();
-        const routeApp = honoAppFromModule(module);
-        mountedApp = mountedHonoApp(handlerRoute.path, routeApp);
-      }
-      return mountedApp.fetch(c.req.raw, c.env);
-    };
-    app.all(handlerRoute.path, handler);
-    if (handlerRoute.path !== "/") {
-      app.all(`${handlerRoute.path}/*`, handler);
-    }
+  for (const handlerRoute of handlerRoutes) {
+    app.route(handlerRoute.path, handlerRoute.module);
   }
 
   return app;

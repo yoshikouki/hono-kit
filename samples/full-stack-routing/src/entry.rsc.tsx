@@ -1,5 +1,8 @@
 import { Hono } from "hono";
-import { createFileRouter } from "@yoshikouki/hono-file-router";
+import {
+  createFileRouter,
+  type HonoRouteSource,
+} from "@yoshikouki/hono-file-router";
 import {
   mdRenderer,
   mdxRenderer,
@@ -13,7 +16,7 @@ import readmeMd from "./routes/content/docs/readme.md?raw";
 const fileRoutes = createFileRouter({
   sources: [
     {
-      files: import.meta.glob("./**/*.{ts,tsx}", {
+      files: import.meta.glob<HonoRouteSource>("./**/*.{ts,tsx}", {
         base: "./routes",
         eager: true,
       }),

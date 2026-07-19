@@ -1,5 +1,7 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
+import { Hono as QuickHono } from "hono/quick";
+import { Hono as TinyHono } from "hono/tiny";
 import {
   type CreateFileRouterOptions,
   createFileRouter,
@@ -82,6 +84,45 @@ const app = new Hono<AppEnv>();
 mountFileRoutes(app, mountOptions);
 createFileRouter<AppEnv>(createOptions);
 createRouteManifest(manifestConfig);
+
+const typedRoute = new Hono<AppEnv>();
+typedRoute.get("/", (c) => {
+  const userId: string = c.var.userId;
+  const prefix: string = c.env.prefix;
+  const routeParam: string | undefined = c.req.param("id");
+  return c.render(`${userId}:${prefix}:${routeParam}`);
+});
+createFileRouter<AppEnv>({
+  sources: [{ files: { "./users/[id].ts": { default: typedRoute } } }],
+});
+
+const quickDirect = new QuickHono<AppEnv>();
+quickDirect.get("/", (c) => c.text(c.var.userId));
+const quickModule = new QuickHono<AppEnv>();
+quickModule.get("/", (c) => c.text(c.env.prefix));
+const tinyDirect = new TinyHono<AppEnv>();
+tinyDirect.get("/", (c) => c.text(c.var.userId));
+const tinyModule = new TinyHono<AppEnv>();
+tinyModule.get("/", (c) => c.text(c.env.prefix));
+createFileRouter<AppEnv>({
+  sources: [
+    {
+      files: {
+        "./quick-direct.ts": quickDirect,
+        "./quick-module.ts": { default: quickModule },
+        "./tiny-direct.ts": tinyDirect,
+        "./tiny-module.ts": { default: tinyModule },
+      },
+    },
+  ],
+});
+
+// @ts-expect-error Hono route-source modules must be eager.
+createFileRouter({ sources: [{ files: { "./lazy.ts": async () => typedRoute } }] });
+createFileRouter({
+  // @ts-expect-error Hono-like fetch objects are not Hono route modules.
+  sources: [{ files: { "./like.ts": { fetch: () => new Response() } } }],
+});
 
 const input: RenderInput<AppEnv> = {
   c: {} as Context<AppEnv>,

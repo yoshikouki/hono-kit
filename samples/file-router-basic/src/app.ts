@@ -1,10 +1,13 @@
 import { Hono } from "hono";
-import { createFileRouter } from "@yoshikouki/hono-file-router";
+import {
+  createFileRouter,
+  type HonoRouteSource,
+} from "@yoshikouki/hono-file-router";
 
 export const fileBasedRoutes = createFileRouter({
   sources: [
     {
-      files: import.meta.glob("./**/*.ts", {
+      files: import.meta.glob<HonoRouteSource>("./**/*.ts", {
         base: "./routes",
         eager: true,
       }),

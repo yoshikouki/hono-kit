@@ -10,6 +10,7 @@ import type {
   RouteManifestConfig,
   RouteSource,
 } from "./types";
+import { validatedHonoApp } from "./hono-route";
 import {
   honoFilePathConvention,
   hasDynamicRouteSegments,
@@ -31,10 +32,6 @@ function toLoader<TModule>(value: GlobValue<TModule>): () => Promise<TModule> {
     }
     return value;
   };
-}
-
-function eagerModule<TModule>(value: GlobValue<TModule>): TModule | undefined {
-  return typeof value === "function" ? undefined : value;
 }
 
 function assertDynamicRoutePolicy(
@@ -124,7 +121,7 @@ export function createRouteManifest<
   }
 
   const generatedRoutes: GeneratedRoute<E>[] = [];
-  const handlers: HonoRoute[] = [];
+  const handlers: HonoRoute<E>[] = [];
   const primaryShapes = new Map<string, string>();
   const registered: RegisteredRoutePath[] = [];
   const renderers: FileRouteRenderer<E>[] = [];
@@ -182,11 +179,10 @@ export function createRouteManifest<
         continue;
       }
 
-      const handler: HonoRoute = {
+      const handler: HonoRoute<E> = {
         file,
         id: routeId("hono", file),
-        load: toLoader(value),
-        module: eagerModule(value),
+        module: validatedHonoApp<E>(value, file),
         path: manifestPath.path,
       };
 
