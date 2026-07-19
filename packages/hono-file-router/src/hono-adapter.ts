@@ -7,13 +7,13 @@ import {
 } from "./registration-plan";
 import type {
   CreateFileRouterOptions,
-  FileRouterInput,
   MountFileRoutesOptions,
+  RouteInput,
   RouteManifest,
 } from "./types";
 
 function resolveManifest<E extends Env>(
-  input: FileRouterInput<E>
+  input: RouteInput<E>
 ): RouteManifest<E> {
   if (input.manifest) {
     return input.manifest;
@@ -22,24 +22,16 @@ function resolveManifest<E extends Env>(
   return createRouteManifest({ sources: input.sources });
 }
 
-export function mountFileRoutes<
-  E extends Env = Env,
-  TModule = unknown,
-  TData = unknown,
->(
+export function mountFileRoutes<E extends Env = Env>(
   app: Hono<E>,
-  options: MountFileRoutesOptions<E, TModule, TData>
+  options: MountFileRoutesOptions<E>
 ): Hono<E> {
   const manifest = resolveManifest(options);
   return applyRegistrationPlan(app, compileRegistrationPlan(manifest));
 }
 
-export function createFileRouter<
-  E extends Env = Env,
-  TModule = unknown,
-  TData = unknown,
->(
-  options: CreateFileRouterOptions<E, TModule, TData>
+export function createFileRouter<E extends Env = Env>(
+  options: CreateFileRouterOptions<E>
 ): Hono<E> {
   const {
     manifest: _manifest,

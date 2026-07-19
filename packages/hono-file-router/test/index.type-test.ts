@@ -6,18 +6,18 @@ import {
   type CreateFileRouterOptions,
   createFileRouter,
   createRouteManifest,
+  type FileRoute,
   type FileRouteRenderer,
-  type FileRouterInput,
-  type FileRouterOptions,
   type GeneratedRoute,
+  type HonoRouteSource,
+  type HttpMethod,
   type MountFileRoutesOptions,
   mountFileRoutes,
   type RenderInput,
-  type RendererSource,
   type RouteManifest,
   type RouteManifestConfig,
-  type RouteSource,
-  type RouteSources,
+  type RoutePathConvention,
+  type RoutePathResult,
 } from "@yoshikouki/hono-file-router";
 
 interface AppEnv {
@@ -29,90 +29,103 @@ interface AppEnv {
   };
 }
 
-const renderer: FileRouteRenderer<AppEnv> = {
-  name: "context-native",
-  accepts: () => true,
-  generatedRoutes(route): GeneratedRoute<AppEnv>[] {
-    return [
-      {
-        path: `/__data${route.path}`,
-        render({ c, route: owner }) {
-          const userId: string = c.var.userId;
-          const prefix: string = c.env.prefix;
-          const routeParam: string | undefined = c.req.param("id");
-          return c.render(`${userId}:${prefix}:${routeParam}:${owner.path}`);
-        },
-      },
-    ];
-  },
-  render({ c, route }) {
-    const userId: string = c.var.userId;
-    const prefix: string = c.env.prefix;
-    const routeParam: string | undefined = c.req.param("id");
-    return c.render(`${userId}:${prefix}:${routeParam}:${route.path}`);
+type Equal<Left, Right> =
+  (<Value>() => Value extends Left ? 1 : 2) extends <Value>() =>
+    Value extends Right ? 1 : 2
+    ? true
+    : false;
+
+type PublicValues = keyof typeof import("@yoshikouki/hono-file-router");
+const publicValuesMatch: Equal<
+  PublicValues,
+  "createFileRouter" | "createRouteManifest" | "mountFileRoutes"
+> = true;
+String(publicValuesMatch);
+
+const method: HttpMethod = "PATCH";
+const route: FileRoute = {
+  file: "./users/[id].tsx",
+  id: "context-native:./users/[id].tsx",
+  path: "/users/:id",
+};
+const generatedRoute: GeneratedRoute<AppEnv> = {
+  method,
+  path: "/__data/users/:id",
+  render({ c, route: owner }) {
+    return c.json({ owner: owner.id });
   },
 };
 
-const source: RendererSource<AppEnv> = {
-  files: { "./users/[id].tsx": "user" },
-  renderer,
+const renderer: FileRouteRenderer<AppEnv> = {
+  name: "context-native",
+  accepts: () => true,
+  generatedRoutes(): GeneratedRoute<AppEnv>[] {
+    return [generatedRoute];
+  },
+  render({ c, route: renderedRoute }) {
+    const userId: string = c.var.userId;
+    const prefix: string = c.env.prefix;
+    const routeParam: string | undefined = c.req.param("id");
+    return c.render(
+      `${userId}:${prefix}:${routeParam}:${renderedRoute.path}`
+    );
+  },
 };
-const routeSource: RouteSource<AppEnv> = source;
-const routeSources: RouteSources<AppEnv> = [routeSource];
+
+const conventionResult: RoutePathResult = { path: "/custom" };
+const pathConvention: RoutePathConvention = {
+  name: "custom",
+  toPath: () => conventionResult,
+};
 const manifestConfig: RouteManifestConfig<AppEnv> = {
-  sources: routeSources,
+  pathConvention,
+  sources: [
+    {
+      files: { "./users/[id].tsx": "user" },
+      renderer,
+    },
+  ],
 };
-const manifest: RouteManifest<AppEnv> = createRouteManifest<AppEnv>({
-  sources: [source],
-});
-const generatedOwner: string | undefined = manifest.generatedRoutes[0]?.owner;
-String(generatedOwner);
-const routerOptions: FileRouterOptions<AppEnv> = {
+const manifest: RouteManifest<AppEnv> =
+  createRouteManifest<AppEnv>(manifestConfig);
+
+const createOptions: CreateFileRouterOptions<AppEnv> = {
   getPath(request, options) {
     const prefix: string | undefined = options?.env?.prefix;
     const { pathname } = new URL(request.url);
     return prefix ? `/${prefix}${pathname}` : pathname;
   },
-};
-const fileRouterInput: FileRouterInput<AppEnv> = {
-  ...routerOptions,
   manifest,
 };
-const createOptions: CreateFileRouterOptions<AppEnv> = fileRouterInput;
-const mountOptions: MountFileRoutesOptions<AppEnv> = fileRouterInput;
+const mountOptions: MountFileRoutesOptions<AppEnv> = { manifest };
 
 const app = new Hono<AppEnv>();
 mountFileRoutes(app, mountOptions);
 createFileRouter<AppEnv>(createOptions);
-createRouteManifest(manifestConfig);
+
+mountFileRoutes(app, {
+  // @ts-expect-error Existing apps already own their Hono constructor options.
+  getPath: (request) => new URL(request.url).pathname,
+  manifest,
+});
 
 const typedRoute = new Hono<AppEnv>();
-typedRoute.get("/", (c) => {
-  const userId: string = c.var.userId;
-  const prefix: string = c.env.prefix;
-  const routeParam: string | undefined = c.req.param("id");
-  return c.render(`${userId}:${prefix}:${routeParam}`);
-});
+typedRoute.get("/", (c) => c.text(`${c.var.userId}:${c.env.prefix}`));
+const typedRouteSource: HonoRouteSource<AppEnv> = { default: typedRoute };
 createFileRouter<AppEnv>({
-  sources: [{ files: { "./users/[id].ts": { default: typedRoute } } }],
+  sources: [{ files: { "./users/[id].ts": typedRouteSource } }],
 });
 
 const quickDirect = new QuickHono<AppEnv>();
 quickDirect.get("/", (c) => c.text(c.var.userId));
-const quickModule = new QuickHono<AppEnv>();
-quickModule.get("/", (c) => c.text(c.env.prefix));
-const tinyDirect = new TinyHono<AppEnv>();
-tinyDirect.get("/", (c) => c.text(c.var.userId));
 const tinyModule = new TinyHono<AppEnv>();
 tinyModule.get("/", (c) => c.text(c.env.prefix));
 createFileRouter<AppEnv>({
   sources: [
     {
       files: {
-        "./quick-direct.ts": quickDirect,
-        "./quick-module.ts": { default: quickModule },
-        "./tiny-direct.ts": tinyDirect,
-        "./tiny-module.ts": { default: tinyModule },
+        "./quick.ts": quickDirect,
+        "./tiny.ts": { default: tinyModule },
       },
     },
   ],
@@ -127,16 +140,12 @@ createFileRouter({
 
 const input: RenderInput<AppEnv> = {
   c: {} as Context<AppEnv>,
-  route: {
-    file: "./users/[id].tsx",
-    id: "context-native:./users/[id].tsx",
-    path: "/users/:id",
-  },
+  route,
 };
 input.c.req.param("id");
 
 // @ts-expect-error createContext was replaced by Hono middleware and c.var.
-createFileRouter({ sources: [source], createContext: () => ({}) });
+createFileRouter({ sources: manifestConfig.sources, createContext: () => ({}) });
 
 // @ts-expect-error RenderInput exposes the raw request as c.req.raw instead.
 String(input.request);
@@ -148,14 +157,20 @@ String(input.params);
 String(input.pathname);
 // @ts-expect-error Router-specific context was replaced by typed c.var.
 String(input.context);
-// @ts-expect-error Generated routes receive their owner as input.route.
-String(input.generatedRoute);
 
-// @ts-expect-error MatchedRoute was removed from the public contract.
-export type RemovedMatchedRoute = import("@yoshikouki/hono-file-router").MatchedRoute;
-// @ts-expect-error RouteParams was removed in favor of c.req.param().
-export type RemovedRouteParams = import("@yoshikouki/hono-file-router").RouteParams;
-// @ts-expect-error Route grammar validation remains internal to manifest/plan compilation.
-export type RemovedAssertSupportedRoutePath = typeof import("@yoshikouki/hono-file-router").assertSupportedRoutePath;
-// @ts-expect-error Route ordering remains internal to registration-plan compilation.
-export type RemovedCompareRouteSpecificity = typeof import("@yoshikouki/hono-file-router").compareRouteSpecificity;
+// @ts-expect-error Route grammar helpers are internal implementation details.
+export type RemovedRouteFileToManifestPath = typeof import("@yoshikouki/hono-file-router").routeFileToManifestPath;
+// @ts-expect-error Route ordering helpers are internal implementation details.
+export type RemovedSortRoutesBySpecificity = typeof import("@yoshikouki/hono-file-router").sortRoutesBySpecificity;
+// @ts-expect-error Route shape helpers are internal implementation details.
+export type RemovedRoutePathToShape = typeof import("@yoshikouki/hono-file-router").routePathToShape;
+// @ts-expect-error Manifest internals are not public extension points.
+export type RemovedManifestGeneratedRoute = import("@yoshikouki/hono-file-router").ManifestGeneratedRoute;
+// @ts-expect-error Source normalization aliases are inferred from public options.
+export type RemovedRouteSources = import("@yoshikouki/hono-file-router").RouteSources;
+// @ts-expect-error Alias-only router inputs were replaced by responsibility-specific options.
+export type RemovedFileRouterInput = import("@yoshikouki/hono-file-router").FileRouterInput;
+// @ts-expect-error Hono constructor options belong only to CreateFileRouterOptions.
+export type RemovedFileRouterOptions = import("@yoshikouki/hono-file-router").FileRouterOptions;
+// @ts-expect-error Unused adapter contracts are not part of the package API.
+export type RemovedFileRouteAdapter = import("@yoshikouki/hono-file-router").FileRouteAdapter;
