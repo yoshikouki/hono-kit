@@ -134,27 +134,21 @@ is registered on the target app. A canonical file-router path is `/` or starts
 with `/` and contains only:
 
 - static segments without Hono pattern metacharacters (`\`, `:`, `*`, `?`,
-  `{`, `}`, or `#`),
+  `{`, `}`, or `#`) and excluding URL dot segments,
 - plain dynamic segments such as `:id`, and
 - one terminal one-or-more catch-all such as `:slug{.+}`.
 
 Dynamic param names must be ASCII JavaScript-style identifiers and must be
 unique within a path. Trailing slashes and empty segments are not canonical.
-Optional params, wildcards, arbitrary regexps, and non-terminal catch-alls are
-rejected. Register routes that need those patterns directly on an
-application-owned Hono app outside file-router.
+The literal dot segments `.` and `..`, percent-encoded dots such as `%2e`
+(case-insensitive), and mixed double-dot forms such as `.%2e`, `%2e.`, and
+`%2e%2e` are not canonical. Optional params, wildcards, arbitrary regexps, and
+non-terminal catch-alls are also rejected. This is a segment-level grammar
+check, not general URL normalization.
 
-```ts
-import { assertSupportedRoutePath } from "@yoshikouki/hono-file-router";
-
-// Accepted
-assertSupportedRoutePath("/users/:id");
-assertSupportedRoutePath("/docs/:slug{.+}");
-
-// Rejected: optional and arbitrary-regexp patterns are application-owned.
-assertSupportedRoutePath("/users/:id?");
-assertSupportedRoutePath("/posts/:id{[0-9]+}");
-```
+Manifest creation and registration-plan compilation validate these rules
+automatically. Register routes that need application-owned Hono patterns
+directly on an application-owned Hono app outside file-router.
 
 ### Deterministic registration order
 

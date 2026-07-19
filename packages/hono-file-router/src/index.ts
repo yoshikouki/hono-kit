@@ -1,8 +1,6 @@
 export { createFileRouter, mountFileRoutes } from "./hono-adapter";
 export { createRouteManifest } from "./manifest";
 export {
-  assertSupportedRoutePath,
-  compareRouteSpecificity,
   hasDynamicRouteSegments,
   honoFilePathConvention,
   pathnameFromRoutePath,

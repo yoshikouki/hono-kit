@@ -5,6 +5,7 @@ const RE_CATCH_ALL_SEGMENT = /^\[\.{3}([A-Za-z_$][\w$]*)\]$/;
 const RE_PLAIN_DYNAMIC_PATH_SEGMENT = /^:([A-Za-z_$][\w$]*)$/;
 const RE_CATCH_ALL_PATH_SEGMENT = /^:([A-Za-z_$][\w$]*)\{\.\+\}$/;
 const RE_STATIC_PATH_SEGMENT = /^[^\\:*?{}#]+$/;
+const RE_URL_DOT_SEGMENT = /^(?:\.|%2e){1,2}$/i;
 const RE_GROUP_SEGMENT = /^\(.+\)$/;
 const RE_LEADING_DOT_SLASH = /^\.\/+/;
 const RE_ROUTE_EXTENSION = /\.[^.]+$/;
@@ -194,6 +195,12 @@ function parseRoutePath(path: string): ParsedRouteSegment[] {
         );
       }
       return { kind: "catch-all", value: segment };
+    }
+    if (RE_URL_DOT_SEGMENT.test(segment)) {
+      throw invalidRoutePath(
+        path,
+        `Segment "${segment}" is a URL dot segment and is not canonical.`
+      );
     }
     if (RE_STATIC_PATH_SEGMENT.test(segment)) {
       return { kind: "static", value: segment };

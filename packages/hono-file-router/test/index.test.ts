@@ -4,8 +4,6 @@ import type { Context } from "hono";
 import { Hono as QuickHono } from "hono/quick";
 import { Hono as TinyHono } from "hono/tiny";
 import {
-  assertSupportedRoutePath,
-  compareRouteSpecificity,
   createFileRouter,
   createRouteManifest,
   mountFileRoutes,
@@ -16,6 +14,10 @@ import {
   type FileRouteRenderer,
   type RouteManifest,
 } from "../src";
+import {
+  assertSupportedRoutePath,
+  compareRouteSpecificity,
+} from "../src/route-path";
 import {
   applyRegistrationPlan,
   compileRegistrationPlan,
@@ -110,6 +112,27 @@ test("rejects non-canonical and application-owned Hono path patterns", () => {
   for (const path of rejected) {
     expect(() => assertSupportedRoutePath(path), path).toThrow(
       /Unsupported file-router path/
+    );
+  }
+});
+
+test("rejects URL dot segments in literal, encoded, and mixed forms", () => {
+  const rejected = [
+    "/.",
+    "/..",
+    "/a/./b",
+    "/a/../b",
+    "/%2e/b",
+    "/%2E/b",
+    "/%2e%2e/b",
+    "/.%2e/b",
+    "/%2e./b",
+    "/%2E%2e/b",
+  ];
+
+  for (const path of rejected) {
+    expect(() => assertSupportedRoutePath(path), path).toThrow(
+      /URL dot segment/
     );
   }
 });
@@ -897,6 +920,47 @@ test("preflights every configuration error before mutating the target app", () =
 
     expect(() => mountFileRoutes(app, { manifest }), name).toThrow();
     expect(app.routes, name).toEqual(originalRoutes);
+  }
+});
+
+test("rejects URL dot segments while compiling and before mount mutation", () => {
+  const rejected = [
+    "/.",
+    "/..",
+    "/a/./b",
+    "/a/../b",
+    "/%2e/b",
+    "/%2E/b",
+    "/%2e%2e/b",
+    "/.%2e/b",
+    "/%2e./b",
+    "/%2E%2e/b",
+  ];
+
+  for (const path of rejected) {
+    const manifest = handWrittenManifest({
+      routes: [
+        {
+          file: "./dot-segment.tsx",
+          id: "text:./dot-segment.tsx",
+          path,
+          rendererName: "text",
+        },
+      ],
+    });
+
+    expect(() => compileRegistrationPlan(manifest), path).toThrow(
+      /URL dot segment/
+    );
+
+    const app = new Hono();
+    app.get("/healthz", (c) => c.text("ok"));
+    const originalRoutes = [...app.routes];
+
+    expect(() => mountFileRoutes(app, { manifest }), path).toThrow(
+      /URL dot segment/
+    );
+    expect(app.routes, path).toEqual(originalRoutes);
   }
 });
 
