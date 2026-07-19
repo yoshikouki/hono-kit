@@ -3,14 +3,13 @@ import {
   createFileRouter,
   type HonoRouteSource,
 } from "@yoshikouki/hono-file-router";
-import {
-  mdRenderer,
-  mdxRenderer,
-  rawMarkdownRenderer,
-} from "@yoshikouki/hono-mdx-renderer";
 import { rscRenderer } from "@yoshikouki/hono-rsc-renderer";
-import { compileMdxRoute } from "./loaders";
-import guideMdx from "./routes/content/docs/guide.mdx?raw";
+import Guide, {
+  frontmatter as guideFrontmatter,
+} from "./routes/content/docs/guide.mdx";
+import Readme, {
+  frontmatter as readmeFrontmatter,
+} from "./routes/content/docs/readme.md";
 import readmeMd from "./routes/content/docs/readme.md?raw";
 
 const fileRoutes = createFileRouter({
@@ -41,9 +40,23 @@ app.get(
   ))
 );
 
-app.get("/docs/readme", mdRenderer(readmeMd));
-app.get("/docs/readme.md", rawMarkdownRenderer(readmeMd));
-app.get("/docs/guide", mdxRenderer(() => compileMdxRoute(guideMdx)));
+app.get("/docs/readme", (c) =>
+  c.render(
+    <article data-title={String(readmeFrontmatter.title)}>
+      <Readme />
+    </article>
+  )
+);
+app.get("/docs/readme.md", (c) =>
+  c.body(readmeMd, 200, { "Content-Type": "text/markdown;charset=utf-8" })
+);
+app.get("/docs/guide", (c) =>
+  c.render(
+    <article data-title={String(guideFrontmatter.title)}>
+      <Guide />
+    </article>
+  )
+);
 app.route("/", fileRoutes);
 
 export default function handler(
