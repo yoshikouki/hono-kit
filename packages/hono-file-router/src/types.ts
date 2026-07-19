@@ -40,11 +40,18 @@ export interface GeneratedRoute<
   TData = unknown,
 > {
   method?: HttpMethod;
-  owner: string;
   path: string;
   render: (
     input: RenderInput<E, TModule, TData>
   ) => Response | Promise<Response>;
+}
+
+export interface ManifestGeneratedRoute<
+  E extends Env = Env,
+  TModule = unknown,
+  TData = unknown,
+> extends GeneratedRoute<E, TModule, TData> {
+  owner: string;
 }
 
 export interface FileRouteSource<TModule = unknown> {
@@ -143,7 +150,7 @@ export interface RouteManifest<
   TModule = unknown,
   TData = unknown,
 > {
-  generatedRoutes: GeneratedRoute<E, TModule, TData>[];
+  generatedRoutes: ManifestGeneratedRoute<E, TModule, TData>[];
   handlers: HonoRoute<E>[];
   renderers: FileRouteRenderer<E, TModule, TData>[];
   routes: FileRoute<TModule, TData>[];
