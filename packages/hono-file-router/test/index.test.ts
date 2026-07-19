@@ -85,6 +85,10 @@ test("accepts exactly the documented file-router path grammar", () => {
     "/",
     "/about",
     "/blog/hello-world.html",
+    "/reserved%2Fescape",
+    "/malformed%ZZescape",
+    "/incomplete%E3%81",
+    "/%252e",
     "/users/:id",
     "/teams/:teamId/users/:userId",
     "/docs/:slug{.+}",
@@ -134,6 +138,48 @@ test("rejects URL dot segments in literal, encoded, and mixed forms", () => {
     expect(() => assertSupportedRoutePath(path), path).toThrow(
       /URL dot segment/
     );
+  }
+});
+
+test("rejects static segments changed by Hono request-path decoding", () => {
+  const rejected = [
+    "/%41",
+    "/a%20b",
+    "/%E3%81%82",
+    "/nested/%5C/path",
+    "/%41%",
+  ];
+
+  for (const path of rejected) {
+    expect(() => assertSupportedRoutePath(path), path).toThrow(
+      /changes after Hono request-path decoding/
+    );
+  }
+});
+
+test("rejects default-convention files that alias decoded static routes", () => {
+  const aliases = [
+    ["./%41.tsx", "./A.tsx", "/%41", "/A"],
+    ["./a%20b.tsx", "./a b.tsx", "/a%20b", "/a b"],
+  ] as const;
+
+  for (const [encodedFile, literalFile, encodedPath, literalPath] of aliases) {
+    expect(routeFileToManifestPath(encodedFile)).toEqual({ path: encodedPath });
+    expect(routeFileToManifestPath(literalFile)).toEqual({ path: literalPath });
+
+    expect(() =>
+      createRouteManifest({
+        sources: [
+          {
+            files: {
+              [encodedFile]: "encoded",
+              [literalFile]: "literal",
+            },
+            renderer: textRenderer(),
+          },
+        ],
+      })
+    ).toThrow(/changes after Hono request-path decoding/);
   }
 });
 
@@ -959,6 +1005,36 @@ test("rejects URL dot segments while compiling and before mount mutation", () =>
 
     expect(() => mountFileRoutes(app, { manifest }), path).toThrow(
       /URL dot segment/
+    );
+    expect(app.routes, path).toEqual(originalRoutes);
+  }
+});
+
+test("rejects request-decoded static paths before mount mutation", () => {
+  const rejected = ["/%41", "/a%20b", "/%E3%81%82", "/%41%"];
+
+  for (const path of rejected) {
+    const manifest = handWrittenManifest({
+      routes: [
+        {
+          file: "./request-decoded.tsx",
+          id: "text:./request-decoded.tsx",
+          path,
+          rendererName: "text",
+        },
+      ],
+    });
+
+    expect(() => compileRegistrationPlan(manifest), path).toThrow(
+      /changes after Hono request-path decoding/
+    );
+
+    const app = new Hono();
+    app.get("/healthz", (c) => c.text("ok"));
+    const originalRoutes = [...app.routes];
+
+    expect(() => mountFileRoutes(app, { manifest }), path).toThrow(
+      /changes after Hono request-path decoding/
     );
     expect(app.routes, path).toEqual(originalRoutes);
   }

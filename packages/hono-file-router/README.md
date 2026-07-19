@@ -134,7 +134,8 @@ is registered on the target app. A canonical file-router path is `/` or starts
 with `/` and contains only:
 
 - static segments without Hono pattern metacharacters (`\`, `:`, `*`, `?`,
-  `{`, `}`, or `#`) and excluding URL dot segments,
+  `{`, `}`, or `#`), excluding URL dot segments, and whose text is unchanged
+  by Hono's one-pass request-path decoding,
 - plain dynamic segments such as `:id`, and
 - one terminal one-or-more catch-all such as `:slug{.+}`.
 
@@ -142,9 +143,15 @@ Dynamic param names must be ASCII JavaScript-style identifiers and must be
 unique within a path. Trailing slashes and empty segments are not canonical.
 The literal dot segments `.` and `..`, percent-encoded dots such as `%2e`
 (case-insensitive), and mixed double-dot forms such as `.%2e`, `%2e.`, and
-`%2e%2e` are not canonical. Optional params, wildcards, arbitrary regexps, and
-non-terminal catch-alls are also rejected. This is a segment-level grammar
-check, not general URL normalization.
+`%2e%2e` are not canonical. Percent encodings such as `%41`, `%20`, and UTF-8
+byte sequences are also non-canonical because Hono decodes them to different
+path text before dispatch. Hono preserves reserved escapes such as `%2F` and
+malformed escapes that `decodeURI` cannot decode. Its `%25` protection also
+keeps one-level double-encoded text such as `%252e` unchanged. These forms
+remain accepted when the registration text is unchanged after that one pass.
+Optional params, wildcards, arbitrary regexps, and non-terminal catch-alls are
+also rejected. This is a segment-level identity check against Hono's request
+path behavior, not general URL normalization.
 
 Manifest creation and registration-plan compilation validate these rules
 automatically. Register routes that need application-owned Hono patterns

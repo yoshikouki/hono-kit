@@ -6,6 +6,7 @@ const RE_PLAIN_DYNAMIC_PATH_SEGMENT = /^:([A-Za-z_$][\w$]*)$/;
 const RE_CATCH_ALL_PATH_SEGMENT = /^:([A-Za-z_$][\w$]*)\{\.\+\}$/;
 const RE_STATIC_PATH_SEGMENT = /^[^\\:*?{}#]+$/;
 const RE_URL_DOT_SEGMENT = /^(?:\.|%2e){1,2}$/i;
+const RE_PERCENT_ENCODED_RUN = /(?:%[0-9A-Fa-f]{2})+/g;
 const RE_GROUP_SEGMENT = /^\(.+\)$/;
 const RE_LEADING_DOT_SLASH = /^\.\/+/;
 const RE_ROUTE_EXTENSION = /\.[^.]+$/;
@@ -152,6 +153,28 @@ function invalidRoutePath(path: string, detail: string): Error {
   );
 }
 
+function decodeStaticSegmentLikeHonoRequestPath(segment: string): string {
+  // Hono's default getPath protects %25 before its one decodeURI pass so that
+  // double-encoded text remains literal for the current request.
+  const protectedSegment = segment.includes("%25")
+    ? segment.replaceAll("%25", "%2525")
+    : segment;
+
+  try {
+    return decodeURI(protectedSegment);
+  } catch {
+    // Hono tolerates malformed input by decoding each valid percent run that
+    // can be decoded independently and preserving every other byte verbatim.
+    return protectedSegment.replace(RE_PERCENT_ENCODED_RUN, (encoded) => {
+      try {
+        return decodeURI(encoded);
+      } catch {
+        return encoded;
+      }
+    });
+  }
+}
+
 function parseRoutePath(path: string): ParsedRouteSegment[] {
   if (path === "/") {
     return [];
@@ -203,6 +226,12 @@ function parseRoutePath(path: string): ParsedRouteSegment[] {
       );
     }
     if (RE_STATIC_PATH_SEGMENT.test(segment)) {
+      if (decodeStaticSegmentLikeHonoRequestPath(segment) !== segment) {
+        throw invalidRoutePath(
+          path,
+          `Segment "${segment}" changes after Hono request-path decoding and is not canonical.`
+        );
+      }
       return { kind: "static", value: segment };
     }
     throw invalidRoutePath(
