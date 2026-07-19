@@ -7,7 +7,7 @@
   "types": "./dist/index.d.ts",
   "files": ["dist"],
   "scripts": {
-    "build": "rm -rf ./dist && bun build ./src/index.ts --outdir ./dist --target bun --format esm --external hono && tsc -p tsconfig.json --emitDeclarationOnly && bun run typecheck:dist",
+    "build": "rm -rf ./dist && bun build ./src/index.ts --outdir ./dist --target browser --format esm --external hono && tsc -p tsconfig.json --emitDeclarationOnly && bun run typecheck:dist",
     "typecheck": "tsc -p tsconfig.type-tests.json",
     "typecheck:dist": "tsc -p tsconfig.dist-type-tests.json",
     "test": "bun test"
