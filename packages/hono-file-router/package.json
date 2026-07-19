@@ -9,7 +9,7 @@
   "scripts": {
     "build": "rm -rf ./dist && bun build ./src/index.ts --outdir ./dist --target browser --format esm --external hono && tsc -p tsconfig.json --emitDeclarationOnly && bun run typecheck:dist",
     "typecheck": "tsc -p tsconfig.type-tests.json",
-    "typecheck:dist": "tsc -p tsconfig.dist-type-tests.json",
+    "typecheck:dist": "tsc -p tsconfig.dist-type-tests.json && bun ./scripts/typecheck-readme.ts",
     "test": "bun test"
   },
   "exports": {
@@ -39,6 +39,7 @@
   },
   "devDependencies": {
     "hono": "^4.12.30",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vite": "^8.1.5"
   }
 }

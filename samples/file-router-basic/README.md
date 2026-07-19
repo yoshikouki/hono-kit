@@ -2,8 +2,9 @@
 
 Basic consumer sample for `@yoshikouki/hono-file-router`.
 
-The sample uses `createFileRouter({ sources })` with `import.meta.glob`.
-Each route file under `src/routes` default exports a Hono router:
+The sample uses `createFileRouter({ sources })` with an eager
+`import.meta.glob<HonoRouteSource>(...)`. Each route file under `src/routes`
+default exports a Hono router whose route entries use the exact child path `/`:
 
 - `src/routes/index.ts` maps to `/`.
 - `src/routes/users/[id]/index.ts` maps to `/users/:id`.

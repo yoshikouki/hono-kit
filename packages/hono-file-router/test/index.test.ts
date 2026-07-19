@@ -7,16 +7,16 @@ import {
   createFileRouter,
   createRouteManifest,
   mountFileRoutes,
-  pathnameFromRoutePath,
-  routeFileToManifestPath,
-  routePathToShape,
-  sortRoutesBySpecificity,
   type FileRouteRenderer,
   type RouteManifest,
 } from "../src";
 import {
   assertSupportedRoutePath,
   compareRouteSpecificity,
+  pathnameFromRoutePath,
+  routeFileToManifestPath,
+  routePathToShape,
+  sortRoutesBySpecificity,
 } from "../src/route-path";
 import {
   applyRegistrationPlan,

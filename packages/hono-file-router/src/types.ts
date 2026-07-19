@@ -54,24 +54,6 @@ export interface ManifestGeneratedRoute<
   owner: string;
 }
 
-export interface FileRouteSource<TModule = unknown> {
-  contents?: string;
-  file: string;
-  load?: () => Promise<TModule>;
-}
-
-export interface FileRouteAdapter<TModule = unknown, TData = unknown> {
-  accepts: (source: FileRouteSource<TModule>) => boolean;
-  name: string;
-  toRoutes: (
-    source: FileRouteSource<TModule>
-  ) =>
-    | FileRoute<TModule, TData>
-    | FileRoute<TModule, TData>[]
-    | null
-    | undefined;
-}
-
 export interface FileRouteRenderer<
   E extends Env = Env,
   TModule = unknown,
@@ -136,11 +118,7 @@ export type RouteSources<E extends Env = Env> =
   | AnyRouteSource<E>
   | AnyRouteSource<E>[];
 
-export interface RouteManifestConfig<
-  E extends Env = Env,
-  _TModule = unknown,
-  _TData = unknown,
-> {
+export interface RouteManifestConfig<E extends Env = Env> {
   pathConvention?: RoutePathConvention;
   sources: RouteSources<E>;
 }
@@ -156,32 +134,17 @@ export interface RouteManifest<
   routes: FileRoute<TModule, TData>[];
 }
 
-export type FileRouterInput<
-  E extends Env = Env,
-  _TModule = unknown,
-  _TData = unknown,
-> = FileRouterOptions<E> &
-  (
-    | {
-        manifest: RouteManifest<E>;
-        sources?: never;
-      }
-    | {
-        manifest?: never;
-        sources: RouteSources<E>;
-      }
-  );
+export type RouteInput<E extends Env = Env> =
+  | {
+      manifest: RouteManifest<E>;
+      sources?: never;
+    }
+  | {
+      manifest?: never;
+      sources: RouteSources<E>;
+    };
 
-export type FileRouterOptions<E extends Env = Env> = HonoOptions<E>;
+export type CreateFileRouterOptions<E extends Env = Env> = HonoOptions<E> &
+  RouteInput<E>;
 
-export type CreateFileRouterOptions<
-  E extends Env = Env,
-  TModule = unknown,
-  TData = unknown,
-> = FileRouterInput<E, TModule, TData>;
-
-export type MountFileRoutesOptions<
-  E extends Env = Env,
-  TModule = unknown,
-  TData = unknown,
-> = FileRouterInput<E, TModule, TData>;
+export type MountFileRoutesOptions<E extends Env = Env> = RouteInput<E>;
