@@ -9,6 +9,14 @@ Experimental Hono routing and renderer packages.
 This repository is prepared to publish packages under the `@yoshikouki` npm
 scope and uses Bun for local development.
 
+The current developer preview is published with the `beta` npm dist-tag:
+
+```sh
+npm install @yoshikouki/hono-file-router@beta
+npm install @yoshikouki/hono-mdx-renderer@beta
+npm install @yoshikouki/hono-rsc-renderer@beta
+```
+
 ## Packages
 
 - `@yoshikouki/hono-file-router` - file-based routing core for Hono
@@ -57,6 +65,29 @@ bun run typecheck
 bun run build
 bun run test
 ```
+
+## Publishing
+
+See [the publishing runbook](docs/publishing.md) for initial npm package
+creation, Trusted Publisher settings, routine releases, and recovery.
+
+Each package version is an explicit release declaration. A pull request that
+changes files below `packages/<name>` must also assign that package a new
+semantic version. Prerelease versions use their first prerelease identifier as
+the npm dist-tag, so `0.1.0-beta.1` is published with the `beta` tag. Stable
+versions use `latest`.
+
+After the change reaches `main`, the publish workflow repeats the full
+verification suite, generates publish-only package directories from the built
+`dist` output, inspects each package tarball, and publishes only versions that
+do not already exist in npm. The generated manifests replace development-only
+source exports with the `publishConfig.exports` contract and include the root
+license with every package.
+
+npm Trusted Publishing authenticates the GitHub-hosted runner with OIDC; the
+repository does not store an npm publish token. The `npm-publish` GitHub
+environment and `.github/workflows/publish.yml` must match the trusted
+publisher configured for every package on npm.
 
 ## Security
 
