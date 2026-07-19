@@ -2,7 +2,20 @@ import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { spawn } from "node:child_process";
 
-const REGISTRY = "https://registry.npmjs.org";
+const PUBLISHED_PACKAGES = [
+  {
+    name: "@yoshikouki/hono-file-router",
+    url: "https://registry.npmjs.org/%40yoshikouki%2Fhono-file-router",
+  },
+  {
+    name: "@yoshikouki/hono-mdx-renderer",
+    url: "https://registry.npmjs.org/%40yoshikouki%2Fhono-mdx-renderer",
+  },
+  {
+    name: "@yoshikouki/hono-rsc-renderer",
+    url: "https://registry.npmjs.org/%40yoshikouki%2Fhono-rsc-renderer",
+  },
+];
 
 const run = (command, args) =>
   new Promise((resolveProcess, reject) => {
@@ -17,22 +30,41 @@ const run = (command, args) =>
     });
   });
 
-const published = async ({ name, version }) => {
-  const response = await fetch(
-    `${REGISTRY}/${encodeURIComponent(name)}/${encodeURIComponent(version)}`,
-    { headers: { accept: "application/json" } }
+const registryVersions = async () =>
+  new Map(
+    await Promise.all(
+      PUBLISHED_PACKAGES.map(async ({ name, url }) => {
+        const response = await fetch(url, {
+          headers: { accept: "application/json" },
+        });
+        if (!response.ok) {
+          throw new Error(
+            `Could not read ${name} from npm: ${response.status} ${response.statusText}`
+          );
+        }
+
+        const metadata = await response.json();
+        if (
+          !metadata ||
+          typeof metadata !== "object" ||
+          !("versions" in metadata) ||
+          !metadata.versions ||
+          typeof metadata.versions !== "object"
+        ) {
+          throw new Error(`npm returned invalid package metadata for ${name}`);
+        }
+
+        return [name, new Set(Object.keys(metadata.versions))];
+      })
+    )
   );
 
-  if (response.status === 404) {
-    return false;
+const published = ({ name, version }, knownVersions) => {
+  const versions = knownVersions.get(name);
+  if (!versions) {
+    throw new Error(`Refusing to publish unexpected package: ${name}`);
   }
-  if (!response.ok) {
-    throw new Error(
-      `Could not read ${name}@${version} from npm: ${response.status} ${response.statusText}`
-    );
-  }
-
-  return true;
+  return versions.has(version);
 };
 
 const [manifestPath] = process.argv.slice(2);
@@ -42,11 +74,9 @@ if (!manifestPath) {
 
 const dryRun = process.argv.includes("--dry-run");
 const packages = JSON.parse(await readFile(manifestPath, "utf8"));
+const versionsByPackage = await registryVersions();
 for (const packageRelease of packages) {
-  // Registry checks and publishes are intentionally sequential so a partial
-  // failure can be retried without obscuring which package changed state.
-  // biome-ignore lint/performance/noAwaitInLoops: release operations are ordered
-  if (await published(packageRelease)) {
+  if (published(packageRelease, versionsByPackage)) {
     console.log(
       `Skipping published package ${packageRelease.name}@${packageRelease.version}.`
     );
@@ -61,6 +91,8 @@ for (const packageRelease of packages) {
   if (dryRun) {
     continue;
   }
+  // Publishes are intentionally sequential so retries preserve package state.
+  // biome-ignore lint/performance/noAwaitInLoops: release operations are ordered
   await run("npm", [
     "publish",
     tarball,
