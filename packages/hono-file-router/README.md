@@ -116,7 +116,10 @@ routeFileToManifestPath("./docs/(guides)/[...slug].ts");
 createRouteManifest({
   sources: [
     {
-      files: import.meta.glob("./routes/**/*.{ts,tsx}", { base: "./routes" }),
+      files: import.meta.glob("./routes/**/*.{ts,tsx}", {
+        base: "./routes",
+        eager: true,
+      }),
       ignore: (file) => file.split("/").includes("_components"),
     },
   ],
@@ -130,7 +133,10 @@ Add `ignore` on a source for app-specific non-route directories.
 createRouteManifest({
   sources: [
     {
-      files: import.meta.glob("./**/*.ts", { base: "./routes" }),
+      files: import.meta.glob("./**/*.ts", {
+        base: "./routes",
+        eager: true,
+      }),
       ignore: (file) =>
         file.split("/").includes("_components") || file.includes("_fixtures/"),
     },
@@ -168,7 +174,10 @@ app.onError((error, c) => c.text(error.message, 500));
 createFileRouter({
   sources: [
     {
-      files: import.meta.glob("./**/*.ts", { base: "./routes" }),
+      files: import.meta.glob("./**/*.ts", {
+        base: "./routes",
+        eager: true,
+      }),
       ignore: (file) => file.startsWith("_") || file.includes("/_"),
     },
   ],
