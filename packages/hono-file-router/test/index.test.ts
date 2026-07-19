@@ -4,13 +4,14 @@ import type { Context } from "hono";
 import { Hono as QuickHono } from "hono/quick";
 import { Hono as TinyHono } from "hono/tiny";
 import {
+  assertSupportedRoutePath,
+  compareRouteSpecificity,
   createFileRouter,
   createRouteManifest,
   mountFileRoutes,
   pathnameFromRoutePath,
   routeFileToManifestPath,
   routePathToShape,
-  routePathsOverlap,
   sortRoutesBySpecificity,
   type FileRouteRenderer,
   type RouteManifest,
@@ -19,6 +20,17 @@ import {
   applyRegistrationPlan,
   compileRegistrationPlan,
 } from "../src/registration-plan";
+
+function permutations<T>(values: readonly T[]): T[][] {
+  if (values.length <= 1) {
+    return [[...values]];
+  }
+  return values.flatMap((value, index) =>
+    permutations(
+      values.filter((_, candidateIndex) => candidateIndex !== index)
+    ).map((rest) => [value, ...rest])
+  );
+}
 
 const textRenderer = (name = "text"): FileRouteRenderer => ({
   name,
@@ -66,6 +78,42 @@ test("rejects unsupported dynamic segment syntax", () => {
   );
 });
 
+test("accepts exactly the documented file-router path grammar", () => {
+  const accepted = [
+    "/",
+    "/about",
+    "/blog/hello-world.html",
+    "/users/:id",
+    "/teams/:teamId/users/:userId",
+    "/docs/:slug{.+}",
+  ];
+
+  for (const path of accepted) {
+    expect(() => assertSupportedRoutePath(path), path).not.toThrow();
+  }
+});
+
+test("rejects non-canonical and application-owned Hono path patterns", () => {
+  const rejected = [
+    "users",
+    "/users/",
+    "/users//settings",
+    "/users/:id?",
+    "/users/*",
+    "/users/:id{[0-9]+}",
+    "/users/:path{.*}",
+    "/users/:path{.+}/edit",
+    "/users/:id/:id",
+    "/users/prefix:id",
+  ];
+
+  for (const path of rejected) {
+    expect(() => assertSupportedRoutePath(path), path).toThrow(
+      /Unsupported file-router path/
+    );
+  }
+});
+
 test("supports custom route path conventions", () => {
   const manifest = createRouteManifest({
     pathConvention: {
@@ -95,12 +143,13 @@ test("rejects duplicate dynamic segment names in one route path", () => {
   );
 });
 
-test("normalizes route shapes and overlap", () => {
+test("normalizes dynamic names while preserving catch-all shapes", () => {
   expect(routePathToShape("/users/:id/books/:bookId")).toBe(
     "/users/:param/books/:param"
   );
-  expect(routePathsOverlap("/users/:id", "/users/settings")).toBe(true);
-  expect(routePathsOverlap("/users/:id", "/teams/settings")).toBe(false);
+  expect(routePathToShape("/docs/:slug{.+}")).toBe(
+    "/docs/:param{.+}"
+  );
 });
 
 test("sorts static siblings before dynamic siblings", () => {
@@ -139,9 +188,72 @@ test("sorts static generated routes before unrelated dynamic routes", () => {
   expect(sortRoutesBySpecificity(routes).map((route) => route.path)).toEqual([
     "/users/settings",
     "/users/settings.md",
-    "/users/:id",
     "/data/users/:id",
+    "/users/:id",
   ]);
+});
+
+test("defines a non-zero antisymmetric and transitive total path order", () => {
+  const paths = [
+    "/",
+    "/about",
+    "/users/settings",
+    "/users/:id",
+    "/users/:id/edit",
+    "/users/:slug{.+}",
+    "/teams/:teamId",
+    "/teams/:rest{.+}",
+  ];
+
+  for (const a of paths) {
+    for (const b of paths) {
+      const aToB = compareRouteSpecificity(a, b);
+      const bToA = compareRouteSpecificity(b, a);
+      if (a === b) {
+        expect(aToB, `${a} === ${b}`).toBe(0);
+      } else {
+        expect(aToB, `${a} !== ${b}`).not.toBe(0);
+        expect(Math.sign(aToB), `${a} <> ${b}`).toBe(-Math.sign(bToA));
+      }
+    }
+  }
+
+  for (const a of paths) {
+    for (const b of paths) {
+      for (const c of paths) {
+        if (
+          compareRouteSpecificity(a, b) <= 0 &&
+          compareRouteSpecificity(b, c) <= 0
+        ) {
+          expect(
+            compareRouteSpecificity(a, c),
+            `${a} <= ${b} <= ${c}`
+          ).toBeLessThanOrEqual(0);
+        }
+      }
+    }
+  }
+});
+
+test("sorts every source permutation into the same path order", () => {
+  const paths = [
+    "/docs/:slug{.+}",
+    "/docs/:id",
+    "/docs/new",
+    "/docs/:id/edit",
+    "/",
+  ];
+  const expected = sortRoutesBySpecificity(
+    paths.map((path) => ({ path }))
+  ).map((route) => route.path);
+
+  for (const permutation of permutations(paths)) {
+    expect(
+      sortRoutesBySpecificity(permutation.map((path) => ({ path }))).map(
+        (route) => route.path
+      )
+    ).toEqual(expected);
+  }
 });
 
 test("builds a route manifest from explicit glob results", () => {
@@ -444,6 +556,230 @@ function handWrittenManifest(
   };
 }
 
+test("sorts every flat-plan permutation independently of route category", () => {
+  const catchAll = new Hono();
+  catchAll.get("/", (c) => c.text("catch-all"));
+  const health = new Hono();
+  health.get("/", (c) => c.text("health"));
+  const routes: RouteManifest["routes"] = [
+    {
+      file: "./catalog/[id].tsx",
+      id: "text:catalog-id",
+      path: "/catalog/:id",
+      rendererName: "text",
+    },
+    {
+      file: "./alpha.tsx",
+      id: "text:alpha",
+      path: "/alpha",
+      rendererName: "text",
+    },
+  ];
+  const generatedRoutes: RouteManifest["generatedRoutes"] = [
+    {
+      owner: "text:catalog-id",
+      path: "/catalog/new",
+      render: () => new Response("new"),
+    },
+    {
+      method: "POST",
+      owner: "text:alpha",
+      path: "/actions",
+      render: () => new Response("action"),
+    },
+  ];
+  const handlers: RouteManifest["handlers"] = [
+    {
+      file: "./catalog/[...rest].ts",
+      id: "hono:catalog-rest",
+      module: catchAll,
+      path: "/catalog/:rest{.+}",
+    },
+    {
+      file: "./health.ts",
+      id: "hono:health",
+      module: health,
+      path: "/health",
+    },
+  ];
+  const expected = [
+    "generated:GET:/catalog/new",
+    "generated:POST:/actions",
+    "renderer:GET:/alpha",
+    "hono:OPAQUE:/health",
+    "renderer:GET:/catalog/:id",
+    "hono:OPAQUE:/catalog/:rest{.+}",
+  ];
+
+  for (const routeOrder of permutations(routes)) {
+    for (const generatedOrder of permutations(generatedRoutes)) {
+      for (const handlerOrder of permutations(handlers)) {
+        const plan = compileRegistrationPlan({
+          generatedRoutes: generatedOrder,
+          handlers: handlerOrder,
+          renderers: [textRenderer()],
+          routes: routeOrder,
+        });
+        expect(
+          plan.map(
+            (entry) =>
+              `${entry.kind}:${entry.kind === "hono" ? "OPAQUE" : entry.method}:${entry.path}`
+          )
+        ).toEqual(expected);
+      }
+    }
+  }
+});
+
+test("applies static, dynamic, and catch-all precedence across categories", async () => {
+  const renderer: FileRouteRenderer = {
+    name: "docs",
+    accepts: () => true,
+    render: ({ c }) => new Response(`dynamic:${c.req.param("id")}`),
+  };
+  const catchAll = new Hono();
+  catchAll.get("/", (c) => c.text(`catch-all:${c.req.param("rest")}`));
+  const manifest: RouteManifest = {
+    generatedRoutes: [
+      {
+        owner: "docs:detail",
+        path: "/docs/new",
+        render: () => new Response("static:generated"),
+      },
+    ],
+    handlers: [
+      {
+        file: "./docs/[...rest].ts",
+        id: "hono:docs-rest",
+        module: catchAll,
+        path: "/docs/:rest{.+}",
+      },
+    ],
+    renderers: [renderer],
+    routes: [
+      {
+        file: "./docs/[id].tsx",
+        id: "docs:detail",
+        path: "/docs/:id",
+        rendererName: "docs",
+      },
+    ],
+  };
+  const app = new Hono();
+  applyRegistrationPlan(app, compileRegistrationPlan(manifest));
+
+  expect(await (await app.request("/docs/new")).text()).toBe(
+    "static:generated"
+  );
+  expect(await (await app.request("/docs/guide")).text()).toBe(
+    "dynamic:guide"
+  );
+  expect(await (await app.request("/docs/guides/start")).text()).toBe(
+    "catch-all:guides/start"
+  );
+});
+
+test("allows one path across distinct concrete generated methods", async () => {
+  const renderer: FileRouteRenderer = {
+    name: "method-aware",
+    accepts: () => true,
+    generatedRoutes(route) {
+      return [
+        {
+          method: "POST",
+          path: route.path,
+          render: () => new Response("generated:POST"),
+        },
+        {
+          method: "ALL",
+          path: "/events",
+          render: ({ c }) => new Response(`generated:ALL:${c.req.method}`),
+        },
+      ];
+    },
+    render: () => new Response("renderer:GET"),
+  };
+  const app = createFileRouter({
+    sources: [{ files: { "./resource.tsx": "resource" }, renderer }],
+  });
+
+  expect(await (await app.request("/resource")).text()).toBe("renderer:GET");
+  expect(
+    await (await app.request("/resource", { method: "POST" })).text()
+  ).toBe("generated:POST");
+  expect(await (await app.request("/events")).text()).toBe(
+    "generated:ALL:GET"
+  );
+  expect(
+    await (await app.request("/events", { method: "DELETE" })).text()
+  ).toBe("generated:ALL:DELETE");
+});
+
+test("rejects duplicate methods and equivalent dynamic shapes", () => {
+  const opaque = new Hono();
+  opaque.post("/", (c) => c.text("opaque"));
+  const duplicateMethod = handWrittenManifest({
+    generatedRoutes: [
+      {
+        method: "POST",
+        owner: "text:./about.tsx",
+        path: "/preview/:id",
+        render: () => new Response("first"),
+      },
+      {
+        method: "POST",
+        owner: "text:./about.tsx",
+        path: "/preview/:name",
+        render: () => new Response("second"),
+      },
+    ],
+  });
+  const allMethod = handWrittenManifest({
+    generatedRoutes: [
+      {
+        method: "GET",
+        owner: "text:./about.tsx",
+        path: "/events",
+        render: () => new Response("get"),
+      },
+      {
+        method: "ALL",
+        owner: "text:./about.tsx",
+        path: "/events",
+        render: () => new Response("all"),
+      },
+    ],
+  });
+  const opaqueShape = handWrittenManifest({
+    handlers: [
+      {
+        file: "./users/[name].ts",
+        id: "hono:users-name",
+        module: opaque,
+        path: "/users/:name",
+      },
+    ],
+    routes: [
+      {
+        file: "./users/[id].tsx",
+        id: "text:users-id",
+        path: "/users/:id",
+        rendererName: "text",
+      },
+    ],
+  });
+
+  expect(() => compileRegistrationPlan(duplicateMethod)).toThrow(
+    /Duplicate route shape "\/preview\/:param" for POST/
+  );
+  expect(() => compileRegistrationPlan(allMethod)).toThrow(
+    /Duplicate route shape "\/events" for ALL/
+  );
+  expect(() => compileRegistrationPlan(opaqueShape)).toThrow(
+    /Duplicate route shape "\/users\/:param" for opaque Hono methods/
+  );
+});
+
 test("preflights every configuration error before mutating the target app", () => {
   const invalidChild = new Hono();
   invalidChild.get("/nested", (c) => c.text("invalid"));
@@ -535,6 +871,19 @@ test("preflights every configuration error before mutating the target app", () =
             owner: "text:./about.tsx",
             path: "/about",
             render: () => new Response("collision"),
+          },
+        ],
+      }),
+    ],
+    [
+      "unsupported file-router grammar",
+      handWrittenManifest({
+        routes: [
+          {
+            file: "./optional.tsx",
+            id: "text:./optional.tsx",
+            path: "/optional/:id?",
+            rendererName: "text",
           },
         ],
       }),

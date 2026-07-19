@@ -2,7 +2,9 @@ import type { RoutePathConvention, RoutePathResult } from "./types";
 
 const RE_DYNAMIC_SEGMENT = /^\[([A-Za-z_$][\w$]*)\]$/;
 const RE_CATCH_ALL_SEGMENT = /^\[\.{3}([A-Za-z_$][\w$]*)\]$/;
-const RE_HONO_PARAM_NAME = /^[A-Za-z_$][\w$]*/;
+const RE_PLAIN_DYNAMIC_PATH_SEGMENT = /^:([A-Za-z_$][\w$]*)$/;
+const RE_CATCH_ALL_PATH_SEGMENT = /^:([A-Za-z_$][\w$]*)\{\.\+\}$/;
+const RE_STATIC_PATH_SEGMENT = /^[^\\:*?{}#]+$/;
 const RE_GROUP_SEGMENT = /^\(.+\)$/;
 const RE_LEADING_DOT_SLASH = /^\.\/+/;
 const RE_ROUTE_EXTENSION = /\.[^.]+$/;
@@ -11,6 +13,19 @@ const RE_TRAILING_INDEX = /(^|\/)index$/;
 interface RoutePathEntry {
   path: string;
 }
+
+type RouteSegmentKind = "static" | "dynamic" | "catch-all";
+
+interface ParsedRouteSegment {
+  kind: RouteSegmentKind;
+  value: string;
+}
+
+const SEGMENT_ORDER: Record<RouteSegmentKind, number> = {
+  static: 0,
+  dynamic: 1,
+  "catch-all": 2,
+};
 
 export function trimSlashes(value: string): string {
   return value.replace(/^\/+|\/+$/g, "");
@@ -113,118 +128,136 @@ export function routeFileToManifestPath(
 }
 
 export function hasDynamicRouteSegments(path: string): boolean {
-  return path.split("/").some((segment) => segment.startsWith(":"));
+  return parseRoutePath(path).some((segment) => segment.kind !== "static");
 }
 
 export function routePathToShape(path: string): string {
-  const segments = path
-    .split("/")
-    .filter(Boolean)
-    .map((segment) => (segment.startsWith(":") ? ":param" : segment));
+  const segments = parseRoutePath(path).map((segment) => {
+    if (segment.kind === "dynamic") {
+      return ":param";
+    }
+    if (segment.kind === "catch-all") {
+      return ":param{.+}";
+    }
+    return segment.value;
+  });
 
   return segments.length > 0 ? `/${segments.join("/")}` : "/";
 }
 
-function pathSegments(path: string): string[] {
-  return path.split("/").filter(Boolean);
+function invalidRoutePath(path: string, detail: string): Error {
+  return new Error(
+    `Unsupported file-router path "${path}": ${detail} Supported paths use static segments, plain dynamic segments such as ":id", or one terminal catch-all such as ":slug{.+}".`
+  );
 }
 
-function isDynamicSegment(segment: string): boolean {
-  return segment.startsWith(":");
-}
-
-function hasDynamicSegment(segments: string[]): boolean {
-  return segments.some(isDynamicSegment);
-}
-
-function routePrefixesCompatible(aSegments: string[], bSegments: string[]): boolean {
-  const length = Math.min(aSegments.length, bSegments.length);
-  for (let i = 0; i < length; i += 1) {
-    const a = aSegments[i];
-    const b = bSegments[i];
-    if (a === undefined || b === undefined) {
-      return true;
-    }
-    if (a !== b && !(isDynamicSegment(a) || isDynamicSegment(b))) {
-      return false;
-    }
+function parseRoutePath(path: string): ParsedRouteSegment[] {
+  if (path === "/") {
+    return [];
   }
-  return true;
-}
-
-export function routePathsOverlap(a: string, b: string): boolean {
-  const aSegments = pathSegments(a);
-  const bSegments = pathSegments(b);
-  if (aSegments.length !== bSegments.length) {
-    return false;
+  if (!path.startsWith("/")) {
+    throw invalidRoutePath(path, "Paths must start with \"/\".");
+  }
+  if (path.endsWith("/")) {
+    throw invalidRoutePath(path, "Trailing slashes are not canonical.");
   }
 
-  return aSegments.every((segment, index) => {
-    const other = bSegments[index];
-    if (other === undefined) {
-      return false;
+  const rawSegments = path.slice(1).split("/");
+  if (rawSegments.some((segment) => segment.length === 0)) {
+    throw invalidRoutePath(path, "Empty path segments are not canonical.");
+  }
+
+  const paramNames = new Set<string>();
+  return rawSegments.map((segment, index) => {
+    const dynamicName = segment.match(RE_PLAIN_DYNAMIC_PATH_SEGMENT)?.[1];
+    const catchAllName = segment.match(RE_CATCH_ALL_PATH_SEGMENT)?.[1];
+    const paramName = dynamicName ?? catchAllName;
+
+    if (paramName) {
+      if (paramNames.has(paramName)) {
+        throw invalidRoutePath(
+          path,
+          `Dynamic param "${paramName}" must be unique within one path.`
+        );
+      }
+      paramNames.add(paramName);
     }
-    return (
-      segment === other || isDynamicSegment(segment) || isDynamicSegment(other)
+
+    if (dynamicName) {
+      return { kind: "dynamic", value: segment };
+    }
+    if (catchAllName) {
+      if (index !== rawSegments.length - 1) {
+        throw invalidRoutePath(
+          path,
+          "A catch-all must be the terminal segment."
+        );
+      }
+      return { kind: "catch-all", value: segment };
+    }
+    if (RE_STATIC_PATH_SEGMENT.test(segment)) {
+      return { kind: "static", value: segment };
+    }
+    throw invalidRoutePath(
+      path,
+      `Segment "${segment}" uses unsupported Hono pattern syntax.`
     );
   });
 }
 
-function compareRouteSpecificity(a: string, b: string): number {
-  const aSegments = pathSegments(a);
-  const bSegments = pathSegments(b);
-  const aHasDynamic = hasDynamicSegment(aSegments);
-  const bHasDynamic = hasDynamicSegment(bSegments);
+export function assertSupportedRoutePath(path: string): void {
+  parseRoutePath(path);
+}
 
-  if (!routePathsOverlap(a, b)) {
-    if (aHasDynamic !== bHasDynamic) {
-      return aHasDynamic ? 1 : -1;
-    }
-    if (!(aHasDynamic || bHasDynamic)) {
-      return bSegments.length - aSegments.length;
-    }
-    if (routePrefixesCompatible(aSegments, bSegments)) {
-      return bSegments.length - aSegments.length;
-    }
+function compareCanonicalPaths(a: string, b: string): number {
+  if (a === b) {
     return 0;
   }
+  return a < b ? -1 : 1;
+}
 
-  const length = Math.min(aSegments.length, bSegments.length);
+export function compareRouteSpecificity(a: string, b: string): number {
+  const aSegments = parseRoutePath(a);
+  const bSegments = parseRoutePath(b);
+  const length = Math.max(aSegments.length, bSegments.length);
+  const aFallbackOrder = Math.max(
+    SEGMENT_ORDER.static,
+    ...aSegments.map((segment) => SEGMENT_ORDER[segment.kind])
+  );
+  const bFallbackOrder = Math.max(
+    SEGMENT_ORDER.static,
+    ...bSegments.map((segment) => SEGMENT_ORDER[segment.kind])
+  );
 
-  for (let i = 0; i < length; i += 1) {
-    const aSegment = aSegments[i];
-    const bSegment = bSegments[i];
-    if (aSegment === undefined || bSegment === undefined) {
-      continue;
-    }
-    const aDynamic = isDynamicSegment(aSegment);
-    const bDynamic = isDynamicSegment(bSegment);
-    if (aDynamic !== bDynamic) {
-      return aDynamic ? 1 : -1;
+  for (let index = 0; index < length; index += 1) {
+    const aSegment = aSegments[index];
+    const bSegment = bSegments[index];
+    const kindDifference =
+      (aSegment ? SEGMENT_ORDER[aSegment.kind] : aFallbackOrder) -
+      (bSegment ? SEGMENT_ORDER[bSegment.kind] : bFallbackOrder);
+    if (kindDifference !== 0) {
+      return kindDifference;
     }
   }
 
-  return bSegments.length - aSegments.length;
+  const lengthDifference = bSegments.length - aSegments.length;
+  return lengthDifference === 0
+    ? compareCanonicalPaths(a, b)
+    : lengthDifference;
 }
 
 export function sortRoutesBySpecificity<T extends RoutePathEntry>(
   routes: T[]
 ): T[] {
-  return routes
-    .map((route, index) => ({ index, route }))
-    .sort((a, b) => {
-      const specificity = compareRouteSpecificity(a.route.path, b.route.path);
-      return specificity === 0 ? a.index - b.index : specificity;
-    })
-    .map(({ route }) => route);
+  return [...routes].sort((a, b) => compareRouteSpecificity(a.path, b.path));
 }
 
 function routeParamName(segment: string): string | null {
-  if (!segment.startsWith(":")) {
-    return null;
-  }
-
-  return segment.slice(1).match(RE_HONO_PARAM_NAME)?.[0] ?? null;
+  return (
+    segment.match(RE_PLAIN_DYNAMIC_PATH_SEGMENT)?.[1] ??
+    segment.match(RE_CATCH_ALL_PATH_SEGMENT)?.[1] ??
+    null
+  );
 }
 
 export function pathnameFromRoutePath(

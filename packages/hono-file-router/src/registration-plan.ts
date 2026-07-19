@@ -1,6 +1,10 @@
 import type { Env, Handler, Hono } from "hono";
 import { validatedHonoApp } from "./hono-route";
-import { routePathToShape, sortRoutesBySpecificity } from "./route-path";
+import {
+  assertSupportedRoutePath,
+  compareRouteSpecificity,
+  routePathToShape,
+} from "./route-path";
 import type {
   FileRoute,
   FileRouteRenderer,
@@ -38,10 +42,24 @@ export type RegistrationPlanEntry<E extends Env> =
 
 export type RegistrationPlan<E extends Env> = readonly RegistrationPlanEntry<E>[];
 
-interface StructuralRegistration {
-  generated: boolean;
+interface CollisionRegistrationBase {
   path: string;
   source: string;
+}
+
+export type CollisionRegistration =
+  | (CollisionRegistrationBase & {
+      kind: "generated" | "renderer";
+      method: HttpMethod;
+    })
+  | (CollisionRegistrationBase & {
+      kind: "hono";
+    });
+
+interface CollisionBucket {
+  allMethods?: CollisionRegistration;
+  methods: Map<HttpMethod, CollisionRegistration>;
+  opaque?: CollisionRegistration;
 }
 
 const SUPPORTED_METHODS = new Set<HttpMethod>([
@@ -103,29 +121,87 @@ function assertSupportedMethod(method: unknown, path: string): asserts method is
   }
 }
 
-function assertNoStructuralCollisions(
-  registrations: StructuralRegistration[]
+function firstCollision(
+  bucket: CollisionBucket,
+  candidate: CollisionRegistration
+): CollisionRegistration | undefined {
+  if (candidate.kind === "hono") {
+    return (
+      bucket.opaque ??
+      bucket.allMethods ??
+      bucket.methods.values().next().value
+    );
+  }
+  if (candidate.method === "ALL") {
+    return (
+      bucket.opaque ??
+      bucket.allMethods ??
+      bucket.methods.values().next().value
+    );
+  }
+  return (
+    bucket.opaque ?? bucket.allMethods ?? bucket.methods.get(candidate.method)
+  );
+}
+
+function addToCollisionBucket(
+  bucket: CollisionBucket,
+  candidate: CollisionRegistration
 ): void {
-  const primaryShapes = new Map<string, StructuralRegistration>();
-  const registered: StructuralRegistration[] = [];
+  if (candidate.kind === "hono") {
+    bucket.opaque = candidate;
+  } else if (candidate.method === "ALL") {
+    bucket.allMethods = candidate;
+  } else {
+    bucket.methods.set(candidate.method, candidate);
+  }
+}
+
+export function assertNoRegistrationCollisions(
+  registrations: readonly CollisionRegistration[]
+): void {
+  const registrationsByShape = new Map<string, CollisionBucket>();
 
   for (const candidate of registrations) {
-    const collision = candidate.generated
-      ? registered.find((entry) => entry.path === candidate.path)
-      : registered.find(
-          (entry) => entry.generated && entry.path === candidate.path
-        ) ?? primaryShapes.get(routePathToShape(candidate.path));
+    assertSupportedRoutePath(candidate.path);
+    const shape = routePathToShape(candidate.path);
+    const bucket = registrationsByShape.get(shape) ?? {
+      methods: new Map<HttpMethod, CollisionRegistration>(),
+    };
+    const collision = firstCollision(bucket, candidate);
     if (collision) {
+      const method =
+        candidate.kind === "hono" ? "opaque Hono methods" : candidate.method;
       throw new Error(
-        `Duplicate route "${candidate.path}": ${collision.source} and ${candidate.source}`
+        `Duplicate route shape "${shape}" for ${method}: ${collision.source} (${collision.path}) and ${candidate.source} (${candidate.path})`
       );
     }
-
-    if (!candidate.generated) {
-      primaryShapes.set(routePathToShape(candidate.path), candidate);
-    }
-    registered.push(candidate);
+    addToCollisionBucket(bucket, candidate);
+    registrationsByShape.set(shape, bucket);
   }
+}
+
+function registrationMethod<E extends Env>(
+  entry: RegistrationPlanEntry<E>
+): string {
+  return entry.kind === "hono" ? "OPAQUE" : entry.method;
+}
+
+function compareRegistrationEntries<E extends Env>(
+  a: RegistrationPlanEntry<E>,
+  b: RegistrationPlanEntry<E>
+): number {
+  const pathOrder = compareRouteSpecificity(a.path, b.path);
+  if (pathOrder !== 0) {
+    return pathOrder;
+  }
+
+  const aKey = `${registrationMethod(a)}\0${a.kind}\0${a.source}`;
+  const bKey = `${registrationMethod(b)}\0${b.kind}\0${b.source}`;
+  if (aKey === bKey) {
+    return 0;
+  }
+  return aKey < bKey ? -1 : 1;
 }
 
 export function compileRegistrationPlan<
@@ -135,16 +211,10 @@ export function compileRegistrationPlan<
 >(manifest: RouteManifest<E, TModule, TData>): RegistrationPlan<E> {
   const renderers = rendererMap(manifest.renderers);
   const routesById = assertUniqueRouteIds(manifest.routes);
-  const structuralRegistrations: StructuralRegistration[] = [];
 
   const handlerEntries: (RendererRegistration<E> | GeneratedRegistration<E>)[] =
     manifest.routes.map((route) => {
       const renderer = resolveRenderer(route, renderers);
-      structuralRegistrations.push({
-        generated: false,
-        path: route.path,
-        source: route.file,
-      });
       return {
         handler: (c) => renderer.render({ c, route }),
         kind: "renderer",
@@ -164,11 +234,6 @@ export function compileRegistrationPlan<
     const method = generatedRoute.method ?? "GET";
     assertSupportedMethod(method, generatedRoute.path);
     const source = `${owner.file} generated route ${generatedRoute.path}`;
-    structuralRegistrations.push({
-      generated: true,
-      path: generatedRoute.path,
-      source,
-    });
     handlerEntries.push({
       handler: (c) => generatedRoute.render({ c, route: owner }),
       kind: "generated",
@@ -178,23 +243,19 @@ export function compileRegistrationPlan<
     });
   }
 
-  const honoEntries: HonoRegistration<E>[] = manifest.handlers.map((route) => {
-    structuralRegistrations.push({
-      generated: false,
-      path: route.path,
-      source: route.file,
-    });
-    return {
+  const honoEntries: HonoRegistration<E>[] = manifest.handlers.map(
+    (route) => ({
       app: validatedHonoApp<E>(route.module, route.file),
       kind: "hono",
       path: route.path,
       source: route.file,
-    };
-  });
+    })
+  );
 
-  assertNoStructuralCollisions(structuralRegistrations);
+  const entries = [...handlerEntries, ...honoEntries];
+  assertNoRegistrationCollisions(entries);
 
-  return [...sortRoutesBySpecificity(handlerEntries), ...honoEntries];
+  return [...entries].sort(compareRegistrationEntries);
 }
 
 function applyHandlerRegistration<E extends Env>(

@@ -127,6 +127,69 @@ createRouteManifest({
 // ./routes/_components/home-page.tsx is ignored by this source.
 ```
 
+### Supported path grammar
+
+Every renderer, generated, and Hono-module path is validated before any route
+is registered on the target app. A canonical file-router path is `/` or starts
+with `/` and contains only:
+
+- static segments without Hono pattern metacharacters (`\`, `:`, `*`, `?`,
+  `{`, `}`, or `#`),
+- plain dynamic segments such as `:id`, and
+- one terminal one-or-more catch-all such as `:slug{.+}`.
+
+Dynamic param names must be ASCII JavaScript-style identifiers and must be
+unique within a path. Trailing slashes and empty segments are not canonical.
+Optional params, wildcards, arbitrary regexps, and non-terminal catch-alls are
+rejected. Register routes that need those patterns directly on an
+application-owned Hono app outside file-router.
+
+```ts
+import { assertSupportedRoutePath } from "@yoshikouki/hono-file-router";
+
+// Accepted
+assertSupportedRoutePath("/users/:id");
+assertSupportedRoutePath("/docs/:slug{.+}");
+
+// Rejected: optional and arbitrary-regexp patterns are application-owned.
+assertSupportedRoutePath("/users/:id?");
+assertSupportedRoutePath("/posts/:id{[0-9]+}");
+```
+
+### Deterministic registration order
+
+Renderer, generated, and root-only Hono-module entries are combined into one
+flat registration plan and sorted together. The total order compares segment
+kinds from left to right with `static < dynamic < terminal catch-all`. After a
+path ends, comparisons use that path's least-specific segment kind; if the kind
+sequence ties, deeper paths come first, followed by a code-unit comparison of
+the complete canonical path. The final path tie is resolved by method, kind,
+and source.
+
+This order never returns equality for distinct canonical paths and does not use
+source order or JavaScript sort stability. In particular, `/users/settings` is
+registered before `/users/:id`, which is registered before
+`/users/:rest{.+}`, even when those entries come from different route
+categories.
+
+### Collision rule
+
+Collision keys use a canonical shape that replaces dynamic param names while
+preserving their kind. For example, `/users/:id` and `/users/:name` both have
+shape `/users/:param`, while `/users/:rest{.+}` has shape
+`/users/:param{.+}`.
+
+- Concrete renderer/generated methods collide only with the same method and
+  shape. Different concrete methods may share a shape.
+- Generated `ALL` collides with every method at the same shape and is
+  registered with `app.all()`; other supported generated methods use
+  `app.on()`.
+- A root-only Hono module is an opaque unit and reserves every method at its
+  shape. File-router does not inspect or replay child methods.
+
+All collision checks use keyed maps and finish before the target Hono app is
+mutated.
+
 Add `ignore` on a source for app-specific non-route directories.
 
 ```ts
