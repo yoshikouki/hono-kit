@@ -1,6 +1,6 @@
 {
   "name": "@yoshikouki/hono-mdx-renderer",
-  "version": "0.0.0",
+  "version": "0.1.0-beta.0",
   "description": "Markdown and MDX route handlers for Hono",
   "type": "module",
   "module": "./dist/index.js",

@@ -2,6 +2,10 @@
 
 Markdown and MDX route handlers for Hono apps.
 
+```sh
+npm install @yoshikouki/hono-mdx-renderer@beta
+```
+
 ## Contract
 
 This package stays on the Hono side of the boundary. It adapts app-provided

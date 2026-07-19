@@ -24,6 +24,12 @@
   },
   "overrides": [
     {
+      "includes": ["scripts/**/*.ts"],
+      "javascript": {
+        "globals": ["Bun"]
+      }
+    },
+    {
       "includes": ["**/test/**/*.ts"],
       "linter": {
         "rules": {

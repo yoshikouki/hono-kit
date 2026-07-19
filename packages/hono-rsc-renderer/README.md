@@ -2,6 +2,10 @@
 
 React Server Components renderer middleware for Hono.
 
+```sh
+npm install @yoshikouki/hono-rsc-renderer@beta
+```
+
 ## Contract
 
 This package follows Hono's built-in JSX Renderer shape: install middleware on a

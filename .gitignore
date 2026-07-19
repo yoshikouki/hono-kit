@@ -2,6 +2,7 @@ node_modules
 .wrangler
 .dev.vars*
 dist
+.release
 packages/*/dist
 *.tgz
 coverage

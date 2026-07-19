@@ -4,6 +4,10 @@ File-based routing for Hono with an intentionally small public contract.
 Applications and build tools discover files; this package converts those files
 into a validated route manifest and applies it to Hono.
 
+```sh
+npm install @yoshikouki/hono-file-router@beta
+```
+
 ## Public API
 
 The package root exports three functions:
