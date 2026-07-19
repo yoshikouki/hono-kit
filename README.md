@@ -68,9 +68,6 @@ bun run test
 
 ## Publishing
 
-See [the publishing runbook](docs/publishing.md) for initial npm package
-creation, Trusted Publisher settings, routine releases, and recovery.
-
 Each package version is an explicit release declaration. A pull request that
 changes files below `packages/<name>` must also assign that package a new
 semantic version. Prerelease versions use their first prerelease identifier as
