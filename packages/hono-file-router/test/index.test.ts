@@ -345,6 +345,7 @@ test("rejects duplicate generated routes across owners", () => {
 
 test("rejects primary collisions between page and Hono route modules", () => {
   const api = new Hono();
+  api.get("/", (c) => c.text("api"));
 
   expect(() =>
     createRouteManifest({
@@ -530,25 +531,48 @@ test("serves generated static routes before dynamic primary routes", async () =>
   );
 });
 
-test("proxies .ts modules as plain Hono route modules", async () => {
-  const api = new Hono();
-  api.get("/", (c) => c.text("api-root"));
-  api.get("/hello/:name", (c) => c.text(`hello:${c.req.param("name")}`));
+test("accepts eager root-only Hono modules with methods and handler chains", async () => {
+  interface TestEnv {
+    Variables: {
+      prefix: string;
+    };
+  }
+  const api = new Hono<TestEnv>();
+  api.use("/", async (c, next) => {
+    c.set("prefix", "handled");
+    await next();
+  });
+  api.get(
+    "/",
+    async (c, next) => {
+      c.header("X-Route-Middleware", "true");
+      await next();
+    },
+    (c) => c.text(`${c.var.prefix}:get`)
+  );
+  api.post("/", (c) => c.text(`${c.var.prefix}:post`));
 
-  const app = createFileRouter({
+  const direct = new Hono();
+  direct.all("/", (c) => c.text(`all:${c.req.method}`));
+
+  const app = createFileRouter<TestEnv>({
     sources: [
       {
         files: {
           "./api.ts": { default: api },
+          "./direct.ts": direct,
         },
       },
     ],
   });
 
-  expect(await (await app.request("/api")).text()).toBe("api-root");
-  expect(await (await app.request("/api/hello/codex")).text()).toBe(
-    "hello:codex"
-  );
+  const getResponse = await app.request("/api");
+  expect(await getResponse.text()).toBe("handled:get");
+  expect(getResponse.headers.get("X-Route-Middleware")).toBe("true");
+  expect(
+    await (await app.request("/api", { method: "POST" })).text()
+  ).toBe("handled:post");
+  expect(await (await app.request("/direct")).text()).toBe("all:GET");
 });
 
 test("passes params to nested dynamic Hono route modules", async () => {
@@ -570,31 +594,157 @@ test("passes params to nested dynamic Hono route modules", async () => {
   );
 });
 
-test("preserves Hono context variables for eager route modules", async () => {
+test("preserves parent Context contracts for eager route modules", async () => {
   interface TestEnv {
+    Bindings: {
+      prefix: string;
+    };
     Variables: {
       greeting: string;
     };
   }
-  const api = new Hono<TestEnv>();
-  api.get("/", (c) => c.text(c.var.greeting));
+  let childContext: Context<TestEnv> | undefined;
+  let parentContext: Context<TestEnv> | undefined;
+  const pending: Promise<unknown>[] = [];
+  const executionCtx = {
+    exports: undefined,
+    passThroughOnException() {
+      pending.push(Promise.resolve("pass-through"));
+    },
+    props: {},
+    waitUntil(promise: Promise<unknown>) {
+      pending.push(promise);
+    },
+  };
+
+  const profile = new Hono<TestEnv>();
+  profile.get("/", (c) => {
+    childContext = c;
+    c.executionCtx.waitUntil(Promise.resolve());
+    return c.render(
+      `${c.var.greeting}:${c.env.prefix}:${c.req.param("id")}`
+    );
+  });
 
   const app = new Hono<TestEnv>();
   app.use("*", async (c, next) => {
+    parentContext = c;
     c.set("greeting", "hello");
+    c.setRenderer((content) => c.text(`rendered:${content}`));
     await next();
   });
   mountFileRoutes(app, {
     sources: [
       {
         files: {
-          "./api.ts": api,
+          "./users/[id].ts": profile,
         },
       },
     ],
   });
 
-  expect(await (await app.request("/api")).text()).toBe("hello");
+  const response = await app.request(
+    "/users/42",
+    undefined,
+    { prefix: "binding" },
+    executionCtx
+  );
+  expect(await response.text()).toBe("rendered:hello:binding:42");
+  expect(childContext).toBe(parentContext);
+  expect(pending).toHaveLength(1);
+});
+
+test("preserves child onError through app.route composition", async () => {
+  const route = new Hono();
+  route.get("/", () => {
+    throw new Error("route failed");
+  });
+  route.onError((error, c) => c.text(`child:${error.message}`, 503));
+
+  const app = createFileRouter({
+    sources: [{ files: { "./failure.ts": route } }],
+  });
+  const response = await app.request("/failure");
+
+  expect(response.status).toBe(503);
+  expect(await response.text()).toBe("child:route failed");
+});
+
+test("rejects lazy Hono route sources with eager glob guidance", () => {
+  const route = new Hono();
+  route.get("/", (c) => c.text("ok"));
+
+  expect(() =>
+    createRouteManifest({
+      sources: [
+        {
+          files: {
+            "./lazy.ts": (() =>
+              Promise.resolve({ default: route })) as unknown as Hono,
+          },
+        },
+      ],
+    })
+  ).toThrow(/eager: true/);
+});
+
+test("rejects empty Hono route modules", () => {
+  expect(() =>
+    createRouteManifest({
+      sources: [{ files: { "./empty.ts": new Hono() } }],
+    })
+  ).toThrow(/at least one route at "\/"/);
+});
+
+test("rejects every non-root Hono child route shape", () => {
+  const starRoute = new Hono();
+  starRoute.all("/", (c) => c.text("invalid"));
+  const [starEntry] = starRoute.routes;
+  if (starEntry) {
+    starEntry.path = "*";
+  }
+
+  const wildcardRoute = new Hono();
+  wildcardRoute.use(async (_c, next) => next());
+
+  const invalidRoutes: [string, Hono][] = [
+    ["*", starRoute],
+    ["/*", wildcardRoute],
+  ];
+  for (const path of ["/:id", "/:id{[0-9]+}", "/nested"]) {
+    const route = new Hono();
+    route.all(path, (c) => c.text("invalid"));
+    invalidRoutes.push([path, route]);
+  }
+
+  for (const [path, route] of invalidRoutes) {
+    expect(() =>
+      createRouteManifest({
+        sources: [{ files: { [`./${encodeURIComponent(path)}.ts`]: route } }],
+      })
+    ).toThrow(new RegExp(`found "${path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`));
+  }
+});
+
+test("validates every Hono module before mutating the target app", () => {
+  const invalid = new Hono();
+  invalid.get("/nested", (c) => c.text("invalid"));
+  const app = new Hono();
+  app.get("/healthz", (c) => c.text("ok"));
+  const originalRoutes = [...app.routes];
+
+  expect(() =>
+    mountFileRoutes(app, {
+      sources: [
+        {
+          files: { "./about.tsx": "about" },
+          renderer: textRenderer(),
+        },
+        { files: { "./invalid.ts": invalid } },
+      ],
+    })
+  ).toThrow(/must only define routes at "\/"/);
+  expect(app.routes).toEqual(originalRoutes);
 });
 
 test("builds request pathnames from dynamic params", () => {

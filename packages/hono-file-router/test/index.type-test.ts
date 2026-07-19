@@ -83,6 +83,24 @@ mountFileRoutes(app, mountOptions);
 createFileRouter<AppEnv>(createOptions);
 createRouteManifest(manifestConfig);
 
+const typedRoute = new Hono<AppEnv>();
+typedRoute.get("/", (c) => {
+  const userId: string = c.var.userId;
+  const prefix: string = c.env.prefix;
+  const routeParam: string | undefined = c.req.param("id");
+  return c.render(`${userId}:${prefix}:${routeParam}`);
+});
+createFileRouter<AppEnv>({
+  sources: [{ files: { "./users/[id].ts": { default: typedRoute } } }],
+});
+
+// @ts-expect-error Hono route-source modules must be eager.
+createFileRouter({ sources: [{ files: { "./lazy.ts": async () => typedRoute } }] });
+createFileRouter({
+  // @ts-expect-error Hono-like fetch objects are not Hono route modules.
+  sources: [{ files: { "./like.ts": { fetch: () => new Response() } } }],
+});
+
 const input: RenderInput<AppEnv> = {
   c: {} as Context<AppEnv>,
   route: {
