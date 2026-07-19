@@ -1,8 +1,7 @@
-import type { Env } from "hono";
+import type { Context, Env } from "hono";
 import type { HonoOptions } from "hono/hono-base";
 
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "ALL";
-export type RouteParams = Record<string, string>;
 export type GlobValue<T = unknown> = T | (() => T | Promise<T>);
 export type GlobFiles<T = unknown> = Record<string, GlobValue<T>>;
 export type RouteFileIgnore = (file: string) => boolean;
@@ -26,29 +25,17 @@ export interface FileRoute<TModule = unknown, TData = unknown> {
   rendererName?: string;
 }
 
-export interface MatchedRoute<
-  TContext = unknown,
+export interface RenderInput<
+  E extends Env = Env,
   TModule = unknown,
   TData = unknown,
 > {
-  context: TContext;
-  params: RouteParams;
-  pathname: string;
-  request: Request;
+  c: Context<E>;
   route: FileRoute<TModule, TData>;
-  url: URL;
-}
-
-export interface RenderInput<
-  TContext = unknown,
-  TModule = unknown,
-  TData = unknown,
-> extends MatchedRoute<TContext, TModule, TData> {
-  generatedRoute?: GeneratedRoute<TContext, TModule, TData>;
 }
 
 export interface GeneratedRoute<
-  TContext = unknown,
+  E extends Env = Env,
   TModule = unknown,
   TData = unknown,
 > {
@@ -56,7 +43,7 @@ export interface GeneratedRoute<
   owner: string;
   path: string;
   render: (
-    input: RenderInput<TContext, TModule, TData>
+    input: RenderInput<E, TModule, TData>
   ) => Response | Promise<Response>;
 }
 
@@ -79,17 +66,17 @@ export interface FileRouteAdapter<TModule = unknown, TData = unknown> {
 }
 
 export interface FileRouteRenderer<
-  TContext = unknown,
+  E extends Env = Env,
   TModule = unknown,
   TData = unknown,
 > {
   accepts: (route: FileRoute<TModule, TData>) => boolean;
   generatedRoutes?: (
     route: FileRoute<TModule, TData>
-  ) => GeneratedRoute<TContext, TModule, TData>[];
+  ) => GeneratedRoute<E, TModule, TData>[];
   name: string;
   render: (
-    input: RenderInput<TContext, TModule, TData>
+    input: RenderInput<E, TModule, TData>
   ) => Response | Promise<Response>;
 }
 
@@ -110,14 +97,14 @@ export interface HonoRoute<TModule = unknown> {
 }
 
 export interface RendererSource<
-  TContext = unknown,
+  E extends Env = Env,
   TModule = unknown,
   TData = unknown,
 > {
   dynamicRoutes?: boolean;
   files: GlobFiles<TModule>;
   ignore?: RouteFileIgnore;
-  renderer: FileRouteRenderer<TContext, TModule, TData>;
+  renderer: FileRouteRenderer<E, TModule, TData>;
 }
 
 export interface HonoRoutesSource<TModule = unknown> {
@@ -128,77 +115,69 @@ export interface HonoRoutesSource<TModule = unknown> {
 }
 
 export type RouteSource<
-  TContext = unknown,
+  E extends Env = Env,
   TModule = unknown,
   TData = unknown,
 > =
-  | RendererSource<TContext, TModule, TData>
+  | RendererSource<E, TModule, TData>
   | HonoRoutesSource<TModule>;
 
-export type AnyRouteSource<TContext = unknown> = RouteSource<
-  TContext,
+export type AnyRouteSource<E extends Env = Env> = RouteSource<
+  E,
   unknown,
   unknown
 >;
 
-export type RouteSources<TContext = unknown> =
-  | AnyRouteSource<TContext>
-  | AnyRouteSource<TContext>[];
+export type RouteSources<E extends Env = Env> =
+  | AnyRouteSource<E>
+  | AnyRouteSource<E>[];
 
 export interface RouteManifestConfig<
-  TContext = unknown,
+  E extends Env = Env,
   _TModule = unknown,
   _TData = unknown,
 > {
   pathConvention?: RoutePathConvention;
-  sources: RouteSources<TContext>;
+  sources: RouteSources<E>;
 }
 
 export interface RouteManifest<
-  TContext = unknown,
+  E extends Env = Env,
   TModule = unknown,
   TData = unknown,
 > {
-  generatedRoutes: GeneratedRoute<TContext, TModule, TData>[];
+  generatedRoutes: GeneratedRoute<E, TModule, TData>[];
   handlers: HonoRoute<TModule>[];
-  renderers: FileRouteRenderer<TContext, TModule, TData>[];
+  renderers: FileRouteRenderer<E, TModule, TData>[];
   routes: FileRoute<TModule, TData>[];
 }
 
 export type FileRouterInput<
-  TContext = unknown,
+  E extends Env = Env,
   _TModule = unknown,
   _TData = unknown,
-  E extends Env = Env,
-> = FileRouterOptions<TContext, E> &
+> = FileRouterOptions<E> &
   (
     | {
-        manifest: RouteManifest<TContext>;
+        manifest: RouteManifest<E>;
         sources?: never;
       }
     | {
         manifest?: never;
-        sources: RouteSources<TContext>;
+        sources: RouteSources<E>;
       }
   );
 
-export interface FileRouterOptions<
-  TContext = unknown,
-  E extends Env = Env,
-> extends HonoOptions<E> {
-  createContext?: (request: Request) => TContext | Promise<TContext>;
-}
+export type FileRouterOptions<E extends Env = Env> = HonoOptions<E>;
 
 export type CreateFileRouterOptions<
-  TContext = unknown,
+  E extends Env = Env,
   TModule = unknown,
   TData = unknown,
-  E extends Env = Env,
-> = FileRouterInput<TContext, TModule, TData, E>;
+> = FileRouterInput<E, TModule, TData>;
 
 export type MountFileRoutesOptions<
-  TContext = unknown,
+  E extends Env = Env,
   TModule = unknown,
   TData = unknown,
-  E extends Env = Env,
-> = FileRouterInput<TContext, TModule, TData, E>;
+> = FileRouterInput<E, TModule, TData>;

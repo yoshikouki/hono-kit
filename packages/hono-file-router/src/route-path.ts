@@ -1,8 +1,4 @@
-import type {
-  RouteParams,
-  RoutePathConvention,
-  RoutePathResult,
-} from "./types";
+import type { RoutePathConvention, RoutePathResult } from "./types";
 
 const RE_DYNAMIC_SEGMENT = /^\[([A-Za-z_$][\w$]*)\]$/;
 const RE_CATCH_ALL_SEGMENT = /^\[\.{3}([A-Za-z_$][\w$]*)\]$/;
@@ -233,7 +229,7 @@ function routeParamName(segment: string): string | null {
 
 export function pathnameFromRoutePath(
   routePath: string,
-  params: RouteParams
+  params: Record<string, string>
 ): string {
   const segments = routePath
     .split("/")

@@ -1,3 +1,4 @@
+import type { Env } from "hono";
 import type {
   FileRoute,
   FileRouteRenderer,
@@ -53,23 +54,23 @@ function routeId(prefix: string, file: string): string {
 }
 
 function isRendererSource<
-  TContext,
+  E extends Env,
   TModule,
   TData,
 >(
-  source: RouteSource<TContext, TModule, TData>
-): source is RendererSource<TContext, TModule, TData> {
+  source: RouteSource<E, TModule, TData>
+): source is RendererSource<E, TModule, TData> {
   return "renderer" in source;
 }
 
 function isIgnoredRouteFile<
-  TContext,
+  E extends Env,
   TModule,
   TData,
 >(
   file: string,
-  source: RouteSource<TContext, TModule, TData>,
-  convention: NonNullable<RouteManifestConfig<TContext>["pathConvention"]>
+  source: RouteSource<E, TModule, TData>,
+  convention: NonNullable<RouteManifestConfig<E>["pathConvention"]>
 ): boolean {
   return Boolean(source.ignore?.(file) || convention.ignore?.(file));
 }
@@ -109,10 +110,10 @@ function assertUniquePrimaryRoute(
 }
 
 export function createRouteManifest<
-  TContext = unknown,
+  E extends Env = Env,
 >(
-  config: RouteManifestConfig<TContext>
-): RouteManifest<TContext> {
+  config: RouteManifestConfig<E>
+): RouteManifest<E> {
   const sources = Array.isArray(config.sources)
     ? config.sources
     : [config.sources];
@@ -122,11 +123,11 @@ export function createRouteManifest<
     throw new Error("createRouteManifest requires at least one route source.");
   }
 
-  const generatedRoutes: GeneratedRoute<TContext>[] = [];
+  const generatedRoutes: GeneratedRoute<E>[] = [];
   const handlers: HonoRoute[] = [];
   const primaryShapes = new Map<string, string>();
   const registered: RegisteredRoutePath[] = [];
-  const renderers: FileRouteRenderer<TContext>[] = [];
+  const renderers: FileRouteRenderer<E>[] = [];
   const routes: FileRoute[] = [];
 
   for (const source of sources) {

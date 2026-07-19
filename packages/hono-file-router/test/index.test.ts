@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { Hono } from "hono";
+import type { Context } from "hono";
 import {
   createFileRouter,
   createRouteManifest,
@@ -32,7 +33,7 @@ const textRenderer = (name = "text"): FileRouteRenderer => ({
       "default" in loaded &&
       typeof loaded.default === "function"
     ) {
-      return new Response(await loaded.default(input.params));
+      return new Response(await loaded.default(input.c.req.param()));
     }
     return new Response(String(loaded ?? input.route.path));
   },
@@ -415,6 +416,81 @@ test("mounts file routes onto an existing Hono app", async () => {
 
   expect(await (await app.request("/healthz")).text()).toBe("ok");
   expect(await (await app.request("/about")).text()).toBe("about");
+});
+
+test("passes the request Hono context to primary and generated renderers", async () => {
+  interface TestEnv {
+    Bindings: {
+      prefix: string;
+    };
+    Variables: {
+      requestId: string;
+    };
+  }
+
+  const middlewareContexts = new Map<string, Context<TestEnv>>();
+  const rendererContexts = new Map<string, Context<TestEnv>>();
+  const renderer: FileRouteRenderer<TestEnv> = {
+    name: "context-native",
+    accepts: () => true,
+    generatedRoutes(route) {
+      return [
+        {
+          owner: route.id,
+          path: "/__data/users/:id",
+          render({ c, route: owner }) {
+            rendererContexts.set(c.req.path, c);
+            return c.render(
+              `${c.var.requestId}:${c.env.prefix}:${c.req.param("id")}:${owner.path}`
+            );
+          },
+        },
+      ];
+    },
+    render({ c, route }) {
+      rendererContexts.set(c.req.path, c);
+      return c.render(
+        `${c.var.requestId}:${c.env.prefix}:${c.req.param("id")}:${route.path}`
+      );
+    },
+  };
+
+  const app = new Hono<TestEnv>();
+  app.use("*", async (c, next) => {
+    middlewareContexts.set(c.req.path, c);
+    c.set("requestId", `request:${c.req.path}`);
+    c.setRenderer((content) => c.text(`rendered:${content}`));
+    await next();
+  });
+  mountFileRoutes(app, {
+    sources: [
+      {
+        files: { "./users/[id].tsx": "user" },
+        renderer,
+      },
+    ],
+  });
+
+  const bindings = { prefix: "env" };
+  const primary = await app.request("/users/123", undefined, bindings);
+  expect(await primary.text()).toBe(
+    "rendered:request:/users/123:env:123:/users/:id"
+  );
+  expect(rendererContexts.get("/users/123")).toBe(
+    middlewareContexts.get("/users/123")
+  );
+
+  const generated = await app.request(
+    "/__data/users/456",
+    undefined,
+    bindings
+  );
+  expect(await generated.text()).toBe(
+    "rendered:request:/__data/users/456:env:456:/users/:id"
+  );
+  expect(rendererContexts.get("/__data/users/456")).toBe(
+    middlewareContexts.get("/__data/users/456")
+  );
 });
 
 test("serves generated static routes before dynamic primary routes", async () => {
