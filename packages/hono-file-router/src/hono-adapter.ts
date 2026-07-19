@@ -1,20 +1,17 @@
 import { Hono } from "hono";
 import type { Env, Handler } from "hono";
 import { createRouteManifest } from "./manifest";
-import { pathnameFromRoutePath, sortRoutesBySpecificity } from "./route-path";
+import { sortRoutesBySpecificity } from "./route-path";
 import type {
   CreateFileRouterOptions,
   FileRoute,
   FileRouteRenderer,
   FileRouterInput,
-  FileRouterOptions,
   GeneratedRoute,
   HonoLikeApp,
   HonoRouteModule,
   MountFileRoutesOptions,
-  RenderInput,
   RouteManifest,
-  RouteParams,
 } from "./types";
 
 interface MountableRoute {
@@ -22,12 +19,9 @@ interface MountableRoute {
   register: () => void;
 }
 
-function resolveManifest<
-  TContext,
-  E extends Env,
->(
-  input: FileRouterInput<TContext, unknown, unknown, E>
-): RouteManifest<TContext> {
+function resolveManifest<E extends Env>(
+  input: FileRouterInput<E>
+): RouteManifest<E> {
   if (input.manifest) {
     return input.manifest;
   }
@@ -36,13 +30,13 @@ function resolveManifest<
 }
 
 function rendererForRoute<
-  TContext,
+  E extends Env,
   TModule,
   TData,
 >(
-  manifest: RouteManifest<TContext, TModule, TData>,
+  manifest: RouteManifest<E, TModule, TData>,
   route: FileRoute<TModule, TData>
-): FileRouteRenderer<TContext, TModule, TData> {
+): FileRouteRenderer<E, TModule, TData> {
   const renderer = manifest.renderers.find(
     (candidate) =>
       candidate.name === route.rendererName || candidate.accepts(route)
@@ -51,32 +45,6 @@ function rendererForRoute<
     throw new Error(`No renderer registered for route "${route.path}".`);
   }
   return renderer;
-}
-
-async function createRenderInput<
-  TContext,
-  TModule,
-  TData,
-  E extends Env,
->(
-  request: Request,
-  route: FileRoute<TModule, TData>,
-  params: RouteParams,
-  options: FileRouterOptions<TContext, E>,
-  generatedRoute?: GeneratedRoute<TContext, TModule, TData>
-): Promise<RenderInput<TContext, TModule, TData>> {
-  const context = options.createContext
-    ? await options.createContext(request)
-    : (undefined as TContext);
-  return {
-    context,
-    generatedRoute,
-    params,
-    pathname: pathnameFromRoutePath(route.path, params),
-    request,
-    route,
-    url: new URL(request.url),
-  };
 }
 
 function registerGeneratedRoute<E extends Env>(
@@ -172,12 +140,11 @@ function mountedHonoApp<E extends Env>(
 
 export function mountFileRoutes<
   E extends Env = Env,
-  TContext = unknown,
   TModule = unknown,
   TData = unknown,
 >(
   app: Hono<E>,
-  options: MountFileRoutesOptions<TContext, TModule, TData, E>
+  options: MountFileRoutesOptions<E, TModule, TData>
 ): Hono<E> {
   const manifest = resolveManifest(options);
 
@@ -185,11 +152,9 @@ export function mountFileRoutes<
   const mountableRoutes: MountableRoute[] = manifest.routes.map((route) => ({
     path: route.path,
     register: () => {
-      app.get(route.path, async (c) => {
+      app.get(route.path, (c) => {
         const renderer = rendererForRoute(manifest, route);
-        return renderer.render(
-          await createRenderInput(c.req.raw, route, c.req.param(), options)
-        );
+        return renderer.render({ c, route });
       });
     },
   }));
@@ -208,16 +173,7 @@ export function mountFileRoutes<
           app,
           generatedRoute.path,
           generatedRoute.method ?? "GET",
-          async (c) =>
-            generatedRoute.render(
-              await createRenderInput(
-                c.req.raw,
-                owner,
-                c.req.param(),
-                options,
-                generatedRoute
-              )
-            )
+          (c) => generatedRoute.render({ c, route: owner })
         );
       },
     });
@@ -256,14 +212,12 @@ export function mountFileRoutes<
 
 export function createFileRouter<
   E extends Env = Env,
-  TContext = unknown,
   TModule = unknown,
   TData = unknown,
 >(
-  options: CreateFileRouterOptions<TContext, TModule, TData, E>
+  options: CreateFileRouterOptions<E, TModule, TData>
 ): Hono<E> {
   const {
-    createContext: _createContext,
     manifest: _manifest,
     sources: _sources,
     ...honoOptions
