@@ -13,7 +13,12 @@ import {
   routePathsOverlap,
   sortRoutesBySpecificity,
   type FileRouteRenderer,
+  type RouteManifest,
 } from "../src";
+import {
+  applyRegistrationPlan,
+  compileRegistrationPlan,
+} from "../src/registration-plan";
 
 const textRenderer = (name = "text"): FileRouteRenderer => ({
   name,
@@ -21,7 +26,6 @@ const textRenderer = (name = "text"): FileRouteRenderer => ({
   generatedRoutes(route) {
     return [
       {
-        owner: route.id,
         path: route.path === "/" ? "/__data" : `/__data${route.path}`,
         render: () => new Response(`generated:${route.path}`),
       },
@@ -161,6 +165,10 @@ test("builds a route manifest from explicit glob results", () => {
     "/__data/about",
     "/__data/users/:id",
   ]);
+  expect(manifest.generatedRoutes.map((route) => route.owner)).toEqual([
+    "text:./about.tsx",
+    "text:./users/[id].tsx",
+  ]);
 });
 
 test("keeps _components route candidates unless a source ignores them", () => {
@@ -242,7 +250,6 @@ test("allows generated routes that only overlap by dynamic shape", () => {
     generatedRoutes(route) {
       return [
         {
-          owner: route.id,
           path:
             route.path === "/users/settings"
               ? "/preview/users/settings"
@@ -279,15 +286,13 @@ test("rejects duplicate generated routes for the same owner", () => {
   const renderer: FileRouteRenderer = {
     name: "duplicate-generated",
     accepts: () => true,
-    generatedRoutes(route) {
+    generatedRoutes(_route) {
       return [
         {
-          owner: route.id,
           path: "/preview/about",
           render: () => new Response("first"),
         },
         {
-          owner: route.id,
           path: "/preview/about",
           render: () => new Response("second"),
         },
@@ -316,10 +321,9 @@ test("rejects duplicate generated routes across owners", () => {
   const renderer: FileRouteRenderer = {
     name: "shared-generated",
     accepts: () => true,
-    generatedRoutes(route) {
+    generatedRoutes(_route) {
       return [
         {
-          owner: route.id,
           path: "/preview/shared",
           render: () => new Response("preview"),
         },
@@ -421,6 +425,258 @@ test("mounts file routes onto an existing Hono app", async () => {
   expect(await (await app.request("/about")).text()).toBe("about");
 });
 
+function handWrittenManifest(
+  overrides: Partial<RouteManifest> = {}
+): RouteManifest {
+  return {
+    generatedRoutes: [],
+    handlers: [],
+    renderers: [textRenderer()],
+    routes: [
+      {
+        file: "./about.tsx",
+        id: "text:./about.tsx",
+        path: "/about",
+        rendererName: "text",
+      },
+    ],
+    ...overrides,
+  };
+}
+
+test("preflights every configuration error before mutating the target app", () => {
+  const invalidChild = new Hono();
+  invalidChild.get("/nested", (c) => c.text("invalid"));
+  const collidingChild = new Hono();
+  collidingChild.get("/", (c) => c.text("collision"));
+
+  const cases: [string, RouteManifest][] = [
+    [
+      "unknown renderer",
+      handWrittenManifest({
+        routes: [
+          {
+            file: "./about.tsx",
+            id: "missing:./about.tsx",
+            path: "/about",
+            rendererName: "missing",
+          },
+        ],
+      }),
+    ],
+    [
+      "duplicate renderer",
+      handWrittenManifest({
+        renderers: [textRenderer(), textRenderer()],
+      }),
+    ],
+    [
+      "empty renderer name",
+      handWrittenManifest({
+        renderers: [textRenderer(" ")],
+      }),
+    ],
+    [
+      "unknown generated owner",
+      handWrittenManifest({
+        generatedRoutes: [
+          {
+            owner: "missing:./about.tsx",
+            path: "/__data/about",
+            render: () => new Response("missing"),
+          },
+        ],
+      }),
+    ],
+    [
+      "unsupported generated method",
+      handWrittenManifest({
+        generatedRoutes: [
+          {
+            method: "TRACE" as never,
+            owner: "text:./about.tsx",
+            path: "/__data/about",
+            render: () => new Response("trace"),
+          },
+        ],
+      }),
+    ],
+    [
+      "invalid Hono module",
+      handWrittenManifest({
+        handlers: [
+          {
+            file: "./invalid.ts",
+            id: "hono:./invalid.ts",
+            module: invalidChild,
+            path: "/invalid",
+          },
+        ],
+      }),
+    ],
+    [
+      "structural collision",
+      handWrittenManifest({
+        handlers: [
+          {
+            file: "./about.ts",
+            id: "hono:./about.ts",
+            module: collidingChild,
+            path: "/about",
+          },
+        ],
+      }),
+    ],
+    [
+      "generated structural collision",
+      handWrittenManifest({
+        generatedRoutes: [
+          {
+            owner: "text:./about.tsx",
+            path: "/about",
+            render: () => new Response("collision"),
+          },
+        ],
+      }),
+    ],
+  ];
+
+  for (const [name, manifest] of cases) {
+    const app = new Hono();
+    app.get("/healthz", (c) => c.text("ok"));
+    const originalRoutes = [...app.routes];
+
+    expect(() => mountFileRoutes(app, { manifest }), name).toThrow();
+    expect(app.routes, name).toEqual(originalRoutes);
+  }
+});
+
+test("compiles resolved handlers without renderer searches at request time", async () => {
+  let acceptsCalls = 0;
+  const renderer: FileRouteRenderer = {
+    name: "exact",
+    accepts() {
+      acceptsCalls += 1;
+      throw new Error("accepts must not run for a supplied manifest");
+    },
+    render: () => new Response("captured"),
+  };
+  const manifest = handWrittenManifest({
+    renderers: [renderer],
+    routes: [
+      {
+        file: "./captured.tsx",
+        id: "exact:./captured.tsx",
+        path: "/captured",
+        rendererName: "exact",
+      },
+    ],
+  });
+
+  const plan = compileRegistrationPlan(manifest);
+  manifest.renderers.splice(0, 1, {
+    ...renderer,
+    render: () => new Response("replacement"),
+  });
+  const app = new Hono();
+  applyRegistrationPlan(app, plan);
+
+  expect(acceptsCalls).toBe(0);
+  expect(plan).toMatchObject([
+    {
+      kind: "renderer",
+      method: "GET",
+      path: "/captured",
+      source: "./captured.tsx",
+    },
+  ]);
+  expect(await (await app.request("/captured")).text()).toBe("captured");
+  expect(acceptsCalls).toBe(0);
+});
+
+test("applies each Hono registration once as an opaque child app", async () => {
+  const child = new Hono();
+  child.use("/", async (c, next) => {
+    c.header("X-Child", "true");
+    await next();
+  });
+  child.get("/", (c) => c.text("get"));
+  child.post("/", (c) => c.text("post"));
+  const manifest = handWrittenManifest({
+    handlers: [
+      {
+        file: "./opaque.ts",
+        id: "hono:./opaque.ts",
+        module: child,
+        path: "/opaque",
+      },
+    ],
+    renderers: [],
+    routes: [],
+  });
+  const plan = compileRegistrationPlan(manifest);
+  const honoEntries = plan.filter((entry) => entry.kind === "hono");
+  expect(honoEntries).toEqual([
+    {
+      app: child,
+      kind: "hono",
+      path: "/opaque",
+      source: "./opaque.ts",
+    },
+  ]);
+
+  const app = new Hono();
+  const originalRoute = app.route.bind(app);
+  let routeCalls = 0;
+  app.route = ((path: string, routedApp: Hono) => {
+    routeCalls += 1;
+    expect(path).toBe("/opaque");
+    expect(routedApp).toBe(child);
+    return originalRoute(path, routedApp);
+  }) as typeof app.route;
+  applyRegistrationPlan(app, plan);
+
+  expect(routeCalls).toBe(1);
+  const getResponse = await app.request("/opaque");
+  expect(await getResponse.text()).toBe("get");
+  expect(getResponse.headers.get("X-Child")).toBe("true");
+  expect(
+    await (await app.request("/opaque", { method: "POST" })).text()
+  ).toBe("post");
+});
+
+test("does not roll back registrations when a user handler later throws", async () => {
+  const renderer: FileRouteRenderer = {
+    name: "throwing",
+    accepts: () => true,
+    render() {
+      throw new Error("user handler failed");
+    },
+  };
+  const app = new Hono();
+  app.onError((error, c) => c.text(error.message, 500));
+  mountFileRoutes(app, {
+    manifest: handWrittenManifest({
+      renderers: [renderer],
+      routes: [
+        {
+          file: "./failure.tsx",
+          id: "throwing:./failure.tsx",
+          path: "/failure",
+          rendererName: "throwing",
+        },
+      ],
+    }),
+  });
+  const registeredRoutes = [...app.routes];
+
+  const response = await app.request("/failure");
+  expect(response.status).toBe(500);
+  expect(await response.text()).toBe("user handler failed");
+  expect(app.routes).toEqual(registeredRoutes);
+  expect(app.routes.some((route) => route.path === "/failure")).toBe(true);
+});
+
 test("passes the request Hono context to primary and generated renderers", async () => {
   interface TestEnv {
     Bindings: {
@@ -436,10 +692,9 @@ test("passes the request Hono context to primary and generated renderers", async
   const renderer: FileRouteRenderer<TestEnv> = {
     name: "context-native",
     accepts: () => true,
-    generatedRoutes(route) {
+    generatedRoutes(_route) {
       return [
         {
-          owner: route.id,
           path: "/__data/users/:id",
           render({ c, route: owner }) {
             rendererContexts.set(c.req.path, c);
@@ -506,7 +761,6 @@ test("serves generated static routes before dynamic primary routes", async () =>
       }
       return [
         {
-          owner: route.id,
           path: "/users/settings.md",
           render: () => new Response("raw-settings"),
         },

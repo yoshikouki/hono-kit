@@ -25,6 +25,7 @@ export type {
   HonoRouteSource,
   HonoRoutesSource,
   HttpMethod,
+  ManifestGeneratedRoute,
   MountFileRoutesOptions,
   AnyRouteSource,
   RendererSource,

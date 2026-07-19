@@ -35,7 +35,6 @@ const renderer: FileRouteRenderer<AppEnv> = {
   generatedRoutes(route): GeneratedRoute<AppEnv>[] {
     return [
       {
-        owner: route.id,
         path: `/__data${route.path}`,
         render({ c, route: owner }) {
           const userId: string = c.var.userId;
@@ -66,6 +65,8 @@ const manifestConfig: RouteManifestConfig<AppEnv> = {
 const manifest: RouteManifest<AppEnv> = createRouteManifest<AppEnv>({
   sources: [source],
 });
+const generatedOwner: string | undefined = manifest.generatedRoutes[0]?.owner;
+String(generatedOwner);
 const routerOptions: FileRouterOptions<AppEnv> = {
   getPath(request, options) {
     const prefix: string | undefined = options?.env?.prefix;

@@ -2,9 +2,9 @@ import type { Env } from "hono";
 import type {
   FileRoute,
   FileRouteRenderer,
-  GeneratedRoute,
   GlobValue,
   HonoRoute,
+  ManifestGeneratedRoute,
   RendererSource,
   RouteManifest,
   RouteManifestConfig,
@@ -120,7 +120,7 @@ export function createRouteManifest<
     throw new Error("createRouteManifest requires at least one route source.");
   }
 
-  const generatedRoutes: GeneratedRoute<E>[] = [];
+  const generatedRoutes: ManifestGeneratedRoute<E>[] = [];
   const handlers: HonoRoute<E>[] = [];
   const primaryShapes = new Map<string, string>();
   const registered: RegisteredRoutePath[] = [];
@@ -173,7 +173,7 @@ export function createRouteManifest<
             source: `${file} generated route ${generatedRoute.path}`,
           };
           assertNoGeneratedCollision(generatedEntry, registered);
-          generatedRoutes.push(generatedRoute);
+          generatedRoutes.push({ ...generatedRoute, owner: route.id });
           registered.push(generatedEntry);
         }
         continue;
