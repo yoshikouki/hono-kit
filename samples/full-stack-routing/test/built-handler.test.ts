@@ -57,14 +57,17 @@ test("built integrated router keeps route-local components out of the route grap
   expect(response.status).toBe(404);
 });
 
-test("built integrated router serves Markdown and MDX content routes", async () => {
+test("built integrated router serves standard Markdown and MDX modules through RSC", async () => {
   const handler = await loadBuiltHandler();
 
   const markdownPage = await handler(
     new Request("https://example.test/docs/readme")
   );
   expect(markdownPage.status).toBe(200);
-  expect(await markdownPage.text()).toContain("Hello from integrated Markdown.");
+  expect(markdownPage.headers.get("Content-Type")).toContain("text/html");
+  const markdownHtml = await markdownPage.text();
+  expect(markdownHtml).toContain("Hello from integrated Markdown.");
+  expect(markdownHtml).toContain('data-title="Full Stack Readme"');
 
   const rawMarkdown = await handler(
     new Request("https://example.test/docs/readme.md")
@@ -75,5 +78,21 @@ test("built integrated router serves Markdown and MDX content routes", async () 
 
   const mdxPage = await handler(new Request("https://example.test/docs/guide"));
   expect(mdxPage.status).toBe(200);
-  expect(await mdxPage.text()).toContain("Full Stack Guide");
+  expect(mdxPage.headers.get("Content-Type")).toContain("text/html");
+  const mdxHtml = await mdxPage.text();
+  expect(mdxHtml).toContain("Full Stack Guide");
+  expect(mdxHtml).toContain('data-title="Full Stack Guide"');
+  expect(mdxHtml).toContain('data-category="guide"');
+
+  const mdxFlight = await handler(
+    new Request("https://example.test/docs/guide", {
+      headers: { Accept: "text/x-component", RSC: "1" },
+    })
+  );
+  expect(mdxFlight.status).toBe(200);
+  expect(mdxFlight.headers.get("Content-Type")).toContain("text/x-component");
+  const flight = await mdxFlight.text();
+  expect(flight).toContain("Full Stack Guide");
+  expect(flight).toContain("standard Rollup integration");
+  expect(flight).toContain("MDX expressions render as server content");
 });

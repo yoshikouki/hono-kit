@@ -13,7 +13,6 @@ The current developer preview is published with the `beta` npm dist-tag:
 
 ```sh
 npm install @yoshikouki/hono-file-router@beta
-npm install @yoshikouki/hono-mdx-renderer@beta
 npm install @yoshikouki/hono-rsc-renderer@beta
 ```
 
@@ -21,15 +20,12 @@ npm install @yoshikouki/hono-rsc-renderer@beta
 
 - `@yoshikouki/hono-file-router` - file-based routing core for Hono
 - `@yoshikouki/hono-rsc-renderer` - React Server Components renderer middleware
-- `@yoshikouki/hono-mdx-renderer` - Markdown/MDX route handlers for Hono
 
 ## Samples
 
 - `samples/file-router-basic` - uses explicit route sources with `*.ts` Hono
   route modules, route groups, catch-all params, and app-owned inherited
   providers
-- `samples/mdx-basic` - verifies Markdown and MDX route handlers without file
-  routing
 - `samples/rsc-vite-basic` - builds a Vite RSC Hono app and
   verifies same-path HTML and Flight responses
 - `samples/rsc-cloudflare-basic` - runs the RSC renderer in Cloudflare Workers
@@ -42,9 +38,9 @@ npm install @yoshikouki/hono-rsc-renderer@beta
 The router package is the source of truth for route source contracts, path
 normalization, manifests, route ordering, generated-route collision checks,
 directory metadata, and Hono mounting. File discovery stays with applications
-and build tools. Renderer packages keep presentation and transport details out
-of the route core; RSC is exposed as Hono middleware while Markdown/MDX are
-ordinary Hono route handlers.
+and build tools. The RSC renderer keeps presentation and transport details out
+of the route core. Applications compile Markdown and MDX with standard build
+tool integrations and pass the resulting components to ordinary Hono handlers.
 
 Package contracts live with the package that owns them:
 
@@ -53,8 +49,6 @@ Package contracts live with the package that owns them:
   mounting.
 - [`packages/hono-rsc-renderer`](packages/hono-rsc-renderer) documents Hono RSC
   renderer middleware, same-path Flight negotiation, and Vite RSC setup.
-- [`packages/hono-mdx-renderer`](packages/hono-mdx-renderer) documents Markdown
-  and MDX Hono route handlers.
 
 ## Development
 

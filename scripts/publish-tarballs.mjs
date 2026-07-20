@@ -8,10 +8,6 @@ const PUBLISHED_PACKAGES = [
     url: "https://registry.npmjs.org/%40yoshikouki%2Fhono-file-router",
   },
   {
-    name: "@yoshikouki/hono-mdx-renderer",
-    url: "https://registry.npmjs.org/%40yoshikouki%2Fhono-mdx-renderer",
-  },
-  {
     name: "@yoshikouki/hono-rsc-renderer",
     url: "https://registry.npmjs.org/%40yoshikouki%2Fhono-rsc-renderer",
   },
