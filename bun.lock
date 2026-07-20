@@ -22,17 +22,6 @@
         "hono": ">=4.0.0",
       },
     },
-    "packages/hono-mdx-renderer": {
-      "name": "@yoshikouki/hono-mdx-renderer",
-      "version": "0.0.0",
-      "devDependencies": {
-        "hono": "^4.12.30",
-        "typescript": "^7.0.2",
-      },
-      "peerDependencies": {
-        "hono": ">=4.0.0",
-      },
-    },
     "packages/hono-rsc-renderer": {
       "name": "@yoshikouki/hono-rsc-renderer",
       "version": "0.0.0",
@@ -85,17 +74,6 @@
         "remark-mdx-frontmatter": "^5.2.0",
         "typescript": "^7.0.2",
         "vite": "^8.1.5",
-      },
-    },
-    "samples/mdx-basic": {
-      "name": "@yoshikouki/sample-mdx-basic",
-      "version": "0.0.0",
-      "dependencies": {
-        "@yoshikouki/hono-mdx-renderer": "workspace:*",
-        "hono": "^4.12.30",
-      },
-      "devDependencies": {
-        "typescript": "^7.0.2",
       },
     },
     "samples/rsc-cloudflare-basic": {
@@ -522,15 +500,11 @@
 
     "@yoshikouki/hono-file-router": ["@yoshikouki/hono-file-router@workspace:packages/hono-file-router"],
 
-    "@yoshikouki/hono-mdx-renderer": ["@yoshikouki/hono-mdx-renderer@workspace:packages/hono-mdx-renderer"],
-
     "@yoshikouki/hono-rsc-renderer": ["@yoshikouki/hono-rsc-renderer@workspace:packages/hono-rsc-renderer"],
 
     "@yoshikouki/sample-file-router-basic": ["@yoshikouki/sample-file-router-basic@workspace:samples/file-router-basic"],
 
     "@yoshikouki/sample-full-stack-routing": ["@yoshikouki/sample-full-stack-routing@workspace:samples/full-stack-routing"],
-
-    "@yoshikouki/sample-mdx-basic": ["@yoshikouki/sample-mdx-basic@workspace:samples/mdx-basic"],
 
     "@yoshikouki/sample-rsc-cloudflare-basic": ["@yoshikouki/sample-rsc-cloudflare-basic@workspace:samples/rsc-cloudflare-basic"],
 
