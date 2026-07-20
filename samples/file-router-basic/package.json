@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@yoshikouki/hono-file-router": "workspace:*",
-    "hono": "^4.12.30"
+    "hono": "^4.12.31"
   },
   "devDependencies": {
     "typescript": "^7.0.2",
