@@ -56,7 +56,7 @@
     "@vitejs/plugin-rsc": "^0.5.27",
     "hono": "^4.12.30",
     "react": "^19.2.7",
-    "react-dom": "^19.2.7",
+    "react-dom": "^19.2.8",
     "typescript": "^7.0.2",
     "vite": "^8.1.5"
   }
