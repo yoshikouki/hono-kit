@@ -106,7 +106,9 @@ async function defaultRenderRsc(
   node: ReactNode,
   options: RenderRscOptions
 ): Promise<ReadableStream<Uint8Array>> {
-  const { renderToReadableStream } = await import("@vitejs/plugin-rsc/rsc");
+  const { renderToReadableStream } = await import(
+    "@vitejs/plugin-rsc/rsc/server"
+  );
   return renderToReadableStream(node, {
     onError: options.onError,
     signal: options.signal,

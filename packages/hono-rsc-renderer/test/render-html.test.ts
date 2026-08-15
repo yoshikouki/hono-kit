@@ -36,7 +36,7 @@ test("passes the same raw nonce to Vite RSC and React DOM", async () => {
 
   const result = await renderHtmlWithRuntime(
     rscStream,
-    Promise.resolve("bootstrap()"),
+    "/assets/entry.browser.js",
     { nonce: "request-nonce", onError, signal },
     runtime
   );
@@ -47,7 +47,7 @@ test("passes the same raw nonce to Vite RSC and React DOM", async () => {
     {
       name: "react-dom",
       options: {
-        bootstrapScriptContent: "bootstrap()",
+        bootstrapModules: ["/assets/entry.browser.js"],
         nonce: "request-nonce",
         onError,
         signal,
@@ -69,7 +69,12 @@ test("passes undefined to both runtimes when no nonce is configured", async () =
     },
   };
 
-  await renderHtmlWithRuntime(textStream("rsc"), "bootstrap()", {}, runtime);
+  await renderHtmlWithRuntime(
+    textStream("rsc"),
+    "/assets/entry.browser.js",
+    {},
+    runtime
+  );
 
   expect(calls[0]).toEqual({
     name: "vite-rsc",

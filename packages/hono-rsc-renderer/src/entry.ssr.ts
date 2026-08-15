@@ -1,4 +1,7 @@
-import { createFromReadableStream } from "@vitejs/plugin-rsc/ssr";
+import {
+  createFromReadableStream,
+  getClientEntryUrl,
+} from "@vitejs/plugin-rsc/ssr";
 import type { ReactNode } from "react";
 import { renderToReadableStream } from "react-dom/server.edge";
 import {
@@ -8,14 +11,13 @@ import {
 
 export type { RenderHtmlOptions } from "./render-html";
 
-const bootstrapScriptContentPromise =
-  import.meta.viteRsc.loadBootstrapScriptContent("index");
+const clientEntryUrl = getClientEntryUrl();
 
 export function renderHtml(
   rscStream: ReadableStream<Uint8Array>,
   options: RenderHtmlOptions = {}
 ): Promise<ReadableStream<Uint8Array>> {
-  return renderHtmlWithRuntime(rscStream, bootstrapScriptContentPromise, options, {
+  return renderHtmlWithRuntime(rscStream, clientEntryUrl, options, {
     createFromReadableStream: (stream, runtimeOptions) =>
       createFromReadableStream<ReactNode>(stream, runtimeOptions),
     renderToReadableStream: (node, runtimeOptions) =>
