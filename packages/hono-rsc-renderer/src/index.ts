@@ -1,6 +1,7 @@
 import type { Context, Env, MiddlewareHandler } from "hono";
 import { createElement, Fragment } from "react";
 import type { ReactNode } from "react";
+import { isMediaTypeAcceptable } from "./accept";
 
 declare const rscRenderPropsMarker: unique symbol;
 
@@ -26,8 +27,11 @@ export type RscRendererComponent<E extends Env = Env> = (
   c: Context<E>
 ) => ReactNode | Promise<ReactNode>;
 
+export type RscRepresentation = "html" | "rsc";
+export type RscNegotiationResult = RscRepresentation | "not-acceptable";
+
 export interface RscRequestNegotiation<E extends Env = Env> {
-  isRscRequest: (c: Context<E>) => boolean;
+  selectRepresentation: (c: Context<E>) => RscNegotiationResult;
   varyHeaders: readonly [string, ...string[]];
 }
 
@@ -155,9 +159,13 @@ function normalizeVaryHeaders(
   return normalizedNames as [string, ...string[]];
 }
 
-function defaultIsRscRequest(c: Context): boolean {
-  const accept = c.req.header("Accept") ?? "";
-  return c.req.header("RSC") === "1" || accept.includes("text/x-component");
+function defaultSelectRepresentation(c: Context): RscNegotiationResult {
+  const representation = c.req.header("RSC") === "1" ? "rsc" : "html";
+  const contentType =
+    representation === "rsc" ? RSC_CONTENT_TYPE : HTML_CONTENT_TYPE;
+  return isMediaTypeAcceptable(c.req.header("Accept"), contentType)
+    ? representation
+    : "not-acceptable";
 }
 
 function htmlResponse(
@@ -191,6 +199,15 @@ function rscResponse(
   return response;
 }
 
+function notAcceptableResponse(
+  c: Context,
+  varyHeaders: readonly string[]
+): Response {
+  const response = c.body(null, 406);
+  appendVary(response.headers, varyHeaders);
+  return response;
+}
+
 function createRenderer<E extends Env>(
   c: Context<E>,
   Layout: RscLayout,
@@ -201,6 +218,11 @@ function createRenderer<E extends Env>(
     children: ReactNode,
     ...propsArgument: RscRenderPropsArgument
   ): Promise<Response> => {
+    const representation = options.negotiation.selectRepresentation(c);
+    if (representation === "not-acceptable") {
+      return notAcceptableResponse(c, options.negotiation.varyHeaders);
+    }
+
     const [props] = propsArgument;
     const onErrorHandler = options.onError;
     const onError = onErrorHandler
@@ -220,7 +242,7 @@ function createRenderer<E extends Env>(
       signal: c.req.raw.signal,
     });
 
-    if (options.negotiation.isRscRequest(c)) {
+    if (representation === "rsc") {
       return rscResponse(c, rscStream, options.negotiation.varyHeaders);
     }
 
@@ -254,7 +276,7 @@ export function rscRenderer<
   options: RscRendererOptions<E> = {}
 ): MiddlewareHandler<E> {
   const requestedNegotiation = options.negotiation ?? {
-    isRscRequest: defaultIsRscRequest,
+    selectRepresentation: defaultSelectRepresentation,
     varyHeaders: DEFAULT_VARY_HEADERS,
   };
   const negotiation = {

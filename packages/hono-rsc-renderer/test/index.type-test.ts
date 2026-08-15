@@ -40,11 +40,11 @@ layout({ children: "content" }, {} as Context<AppEnv>);
 
 rscRenderer(undefined, {
   negotiation: {
-    isRscRequest: () => true,
+    selectRepresentation: () => "rsc",
     // @ts-expect-error Custom negotiation must name at least one Vary header.
     varyHeaders: [],
   },
 });
 
 // @ts-expect-error Negotiation headers cannot be detached from the predicate.
-rscRenderer(undefined, { isRscRequest: () => true });
+rscRenderer(undefined, { selectRepresentation: () => "rsc" });

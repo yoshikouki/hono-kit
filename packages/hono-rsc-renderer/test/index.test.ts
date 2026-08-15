@@ -158,14 +158,15 @@ test("passes render errors to the request-scoped error observer", async () => {
   expect(calls).toEqual([{ error, path: "/observed" }]);
 });
 
-test("keeps custom RSC negotiation and Vary headers in one contract", async () => {
+test("keeps custom representation selection and Vary headers in one contract", async () => {
   const app = new Hono();
 
   app.get(
     "*",
     rscRenderer(undefined, {
       negotiation: {
-        isRscRequest: (c) => c.req.header("X-Flight") === "1",
+        selectRepresentation: (c) =>
+          c.req.header("X-Flight") === "1" ? "rsc" : "html",
         varyHeaders: ["X-Flight", "x-flight", "Accept"],
       },
       renderHtml: async (rscStream) => rscStream,
@@ -190,7 +191,7 @@ test("rejects invalid custom Vary header field names", () => {
     expect(() =>
       rscRenderer(undefined, {
         negotiation: {
-          isRscRequest: () => false,
+          selectRepresentation: () => "html",
           varyHeaders: [varyHeader],
         },
       })
@@ -202,11 +203,103 @@ test("rejects an empty custom Vary header list at runtime", () => {
   expect(() =>
     rscRenderer(undefined, {
       negotiation: {
-        isRscRequest: () => false,
+        selectRepresentation: () => "html",
         varyHeaders: [] as unknown as [string, ...string[]],
       },
     })
   ).toThrow("Custom RSC negotiation requires at least one Vary header");
+});
+
+test("returns 406 when custom representation selection rejects the request", async () => {
+  let renderCalls = 0;
+  const app = new Hono();
+
+  app.get(
+    "*",
+    rscRenderer(undefined, {
+      negotiation: {
+        selectRepresentation: () => "not-acceptable",
+        varyHeaders: ["X-Flight"],
+      },
+      renderHtml: async (rscStream) => rscStream,
+      renderRsc: () => {
+        renderCalls += 1;
+        return textStream("unreachable");
+      },
+    })
+  );
+  app.get("/", (c) => c.render("content"));
+
+  const response = await app.request("/");
+
+  expect(response.status).toBe(406);
+  expect(response.headers.get("Content-Type")).toBeNull();
+  expect(varyTokens(response)).toEqual(["x-flight"]);
+  expect(renderCalls).toBe(0);
+});
+
+test("requires the RSC protocol header to select Flight", async () => {
+  const app = createTestApp();
+  const response = await app.request("/page/about/codex", {
+    headers: { Accept: "text/x-component" },
+  });
+
+  expect(response.status).toBe(406);
+  expect(varyTokens(response)).toEqual(["accept", "origin", "rsc"]);
+});
+
+test("accepts the selected Flight representation at any positive quality", async () => {
+  const app = createTestApp();
+  const response = await app.request("/page/about/codex", {
+    headers: {
+      Accept: "text/html;q=1, text/x-component;q=0.1",
+      RSC: "1",
+    },
+  });
+
+  expect(response.status).toBe(202);
+  expect(response.headers.get("Content-Type")).toContain("text/x-component");
+});
+
+test("rejects Flight when a specific media range has zero quality", async () => {
+  const app = createTestApp();
+  const response = await app.request("/page/about/codex", {
+    headers: {
+      Accept: "text/*;q=1, text/x-component;q=0",
+      RSC: "1",
+    },
+  });
+
+  expect(response.status).toBe(406);
+});
+
+test("rejects HTML when a specific media range has zero quality", async () => {
+  const app = createTestApp();
+  const response = await app.request("/page/about/codex", {
+    headers: { Accept: "*/*;q=1, text/html;q=0" },
+  });
+
+  expect(response.status).toBe(406);
+});
+
+test("matches media type parameters and quoted delimiters", async () => {
+  const app = createTestApp();
+  const accepted = await app.request("/page/about/codex", {
+    headers: {
+      Accept: 'text/x-component;charset="UTF-8";q=0.5, text/html;q=1',
+      RSC: "1",
+    },
+  });
+  const rejected = await app.request("/page/about/codex", {
+    headers: {
+      Accept: 'text/x-component;profile="a,b";q=1, text/html;q=1',
+      RSC: "1",
+    },
+  });
+
+  expect(accepted.status).toBe(202);
+  expect(accepted.headers.get("Content-Type")).toContain("text/x-component");
+  expect(rejected.status).toBe(406);
 });
 
 test("preserves an existing Vary wildcard unchanged", async () => {

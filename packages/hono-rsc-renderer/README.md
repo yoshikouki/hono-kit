@@ -128,9 +128,11 @@ Any override must still prevent nonce-bearing HTML from entering a shared
 cache. HTML rendered without a nonce keeps the previous behavior with no
 renderer-provided `Cache-Control` header.
 
-Flight responses use the same route path as the HTML response. The middleware
-returns Flight when the request includes `RSC: 1` or an `Accept` header that
-contains `text/x-component`; otherwise it returns HTML.
+Flight responses use the same route path as the HTML response. `RSC: 1` selects
+the Flight protocol; requests without it select HTML. `Accept` then validates
+whether the client accepts the selected representation. A request that rejects
+the selected media type receives `406 Not Acceptable` before RSC rendering
+starts.
 
 ```http
 GET /page/about
@@ -142,26 +144,34 @@ Accept: text/x-component
 ```
 
 The default negotiation always emits `Vary: RSC, Accept`. Custom negotiation is
-configured as one contract so its predicate cannot be separated from the
-headers used by shared caches:
+configured as one contract so representation selection cannot be separated
+from the headers used by shared caches:
 
 ```tsx
 app.get(
   "*",
   rscRenderer(undefined, {
     negotiation: {
-      isRscRequest: (c) => c.req.header("X-Flight") === "1",
+      selectRepresentation: (c) =>
+        c.req.header("X-Flight") === "1" ? "rsc" : "html",
       varyHeaders: ["X-Flight"],
     },
   })
 );
 ```
 
-`varyHeaders` must contain at least one entry and every request header read by
-`isRscRequest`. The renderer enforces the non-empty requirement at runtime,
-validates each name as an HTTP field-name token when the middleware is created,
-removes case-insensitive duplicates, and merges the result into an existing
-`Vary` response header. An existing `Vary: *` is preserved unchanged.
+`selectRepresentation` returns `"html"`, `"rsc"`, or `"not-acceptable"`.
+The last result produces a `406` response without invoking the RSC or HTML
+renderer. `varyHeaders` must contain at least one entry and every request header
+read by `selectRepresentation`. The renderer enforces the non-empty requirement
+at runtime, validates each name as an HTTP field-name token when the middleware
+is created, removes case-insensitive duplicates, and merges the result into an
+existing `Vary` response header. An existing `Vary: *` is preserved unchanged.
+
+The default Accept parser supports exact media types, `type/*`, `*/*`, media
+type parameters, quoted parameter values, and `q` quality values. A more
+specific matching range takes precedence, so
+`Accept: text/*;q=1, text/x-component;q=0` rejects Flight.
 
 ## Rendering Errors
 
@@ -299,9 +309,9 @@ c.render(<AboutPage />); // TypeScript error
 - Treat Flight responses as private request data unless an app has explicitly
   proven otherwise. The middleware sets `Cache-Control: private, no-store` on
   Flight responses by default.
-- If a CDN strips custom request headers, either allow the `RSC` header through
-  or rely on `Accept: text/x-component` and include `Accept` in the cache key.
-- When overriding Flight negotiation, declare the predicate and every matching
+- If a CDN strips custom request headers, configure it to forward the `RSC`
+  header. `Accept: text/x-component` does not select Flight by itself.
+- When overriding Flight negotiation, declare the selector and every matching
   `Vary` header together in `negotiation`.
 - Do not cache HTML and Flight under the same cache key. That can serve Flight
   payloads to document requests or HTML documents to RSC clients.
