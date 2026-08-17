@@ -31,7 +31,7 @@ export type RscRepresentation = "html" | "rsc";
 export type RscNegotiationResult = RscRepresentation | "not-acceptable";
 
 export interface RscRequestNegotiation<E extends Env = Env> {
-  selectRepresentation: (c: Context<E>) => RscNegotiationResult;
+  negotiate: (c: Context<E>) => RscNegotiationResult;
   varyHeaders: readonly [string, ...string[]];
 }
 
@@ -161,7 +161,7 @@ function normalizeVaryHeaders(
   return normalizedNames as [string, ...string[]];
 }
 
-function defaultSelectRepresentation(c: Context): RscNegotiationResult {
+function defaultNegotiate(c: Context): RscNegotiationResult {
   const representation = c.req.header("RSC") === "1" ? "rsc" : "html";
   const contentType =
     representation === "rsc" ? RSC_CONTENT_TYPE : HTML_CONTENT_TYPE;
@@ -220,9 +220,17 @@ function createRenderer<E extends Env>(
     children: ReactNode,
     ...propsArgument: RscRenderPropsArgument
   ): Promise<Response> => {
-    const representation = options.negotiation.selectRepresentation(c);
-    if (representation === "not-acceptable") {
-      return notAcceptableResponse(c, options.negotiation.varyHeaders);
+    const negotiationResult: unknown = options.negotiation.negotiate(c);
+    switch (negotiationResult) {
+      case "not-acceptable":
+        return notAcceptableResponse(c, options.negotiation.varyHeaders);
+      case "html":
+      case "rsc":
+        break;
+      default:
+        throw new TypeError(
+          'Invalid RSC negotiation result; expected "html", "rsc", or "not-acceptable"'
+        );
     }
 
     const [props] = propsArgument;
@@ -244,7 +252,7 @@ function createRenderer<E extends Env>(
       signal: c.req.raw.signal,
     });
 
-    if (representation === "rsc") {
+    if (negotiationResult === "rsc") {
       return rscResponse(c, rscStream, options.negotiation.varyHeaders);
     }
 
@@ -278,7 +286,7 @@ export function rscRenderer<
   options: RscRendererOptions<E> = {}
 ): MiddlewareHandler<E> {
   const requestedNegotiation = options.negotiation ?? {
-    selectRepresentation: defaultSelectRepresentation,
+    negotiate: defaultNegotiate,
     varyHeaders: DEFAULT_VARY_HEADERS,
   };
   const negotiation = {

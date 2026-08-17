@@ -158,14 +158,14 @@ test("passes render errors to the request-scoped error observer", async () => {
   expect(calls).toEqual([{ error, path: "/observed" }]);
 });
 
-test("keeps custom representation selection and Vary headers in one contract", async () => {
+test("keeps custom negotiation and Vary headers in one contract", async () => {
   const app = new Hono();
 
   app.get(
     "*",
     rscRenderer(undefined, {
       negotiation: {
-        selectRepresentation: (c) =>
+        negotiate: (c) =>
           c.req.header("X-Flight") === "1" ? "rsc" : "html",
         varyHeaders: ["X-Flight", "x-flight", "Accept"],
       },
@@ -191,7 +191,7 @@ test("rejects invalid custom Vary header field names", () => {
     expect(() =>
       rscRenderer(undefined, {
         negotiation: {
-          selectRepresentation: () => "html",
+          negotiate: () => "html",
           varyHeaders: [varyHeader],
         },
       })
@@ -203,14 +203,14 @@ test("rejects an empty custom Vary header list at runtime", () => {
   expect(() =>
     rscRenderer(undefined, {
       negotiation: {
-        selectRepresentation: () => "html",
+        negotiate: () => "html",
         varyHeaders: [] as unknown as [string, ...string[]],
       },
     })
   ).toThrow("Custom RSC negotiation requires at least one Vary header");
 });
 
-test("returns 406 when custom representation selection rejects the request", async () => {
+test("returns 406 when custom negotiation rejects the request", async () => {
   let renderCalls = 0;
   const app = new Hono();
 
@@ -218,7 +218,7 @@ test("returns 406 when custom representation selection rejects the request", asy
     "*",
     rscRenderer(undefined, {
       negotiation: {
-        selectRepresentation: () => "not-acceptable",
+        negotiate: () => "not-acceptable",
         varyHeaders: ["X-Flight"],
       },
       renderHtml: async (rscStream) => rscStream,
@@ -235,6 +235,41 @@ test("returns 406 when custom representation selection rejects the request", asy
   expect(response.status).toBe(406);
   expect(response.headers.get("Content-Type")).toBeNull();
   expect(varyTokens(response)).toEqual(["x-flight"]);
+  expect(renderCalls).toBe(0);
+});
+
+test("rejects unknown custom negotiation results before rendering", async () => {
+  let caughtError: Error | undefined;
+  let renderCalls = 0;
+  const app = new Hono();
+
+  app.onError((error, c) => {
+    caughtError = error;
+    return c.text("Invalid negotiation", 500);
+  });
+
+  app.get(
+    "*",
+    rscRenderer(undefined, {
+      negotiation: {
+        negotiate: () => "flight" as never,
+        varyHeaders: ["X-Flight"],
+      },
+      renderRsc: () => {
+        renderCalls += 1;
+        return textStream("unreachable");
+      },
+    })
+  );
+  app.get("/", (c) => c.render("content"));
+
+  const response = await app.request("/");
+
+  expect(response.status).toBe(500);
+  expect(caughtError).toBeInstanceOf(TypeError);
+  expect(caughtError?.message).toBe(
+    'Invalid RSC negotiation result; expected "html", "rsc", or "not-acceptable"'
+  );
   expect(renderCalls).toBe(0);
 });
 

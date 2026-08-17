@@ -152,7 +152,7 @@ app.get(
   "*",
   rscRenderer(undefined, {
     negotiation: {
-      selectRepresentation: (c) =>
+      negotiate: (c) =>
         c.req.header("X-Flight") === "1" ? "rsc" : "html",
       varyHeaders: ["X-Flight"],
     },
@@ -160,17 +160,22 @@ app.get(
 );
 ```
 
-`selectRepresentation` returns `"html"`, `"rsc"`, or `"not-acceptable"`.
+`negotiate` returns `"html"`, `"rsc"`, or `"not-acceptable"`.
 The last result produces a `406` response without invoking the RSC or HTML
 renderer. `varyHeaders` must contain at least one entry and every request header
-read by `selectRepresentation`. The renderer enforces the non-empty requirement
+read by `negotiate`. The renderer enforces the non-empty requirement
 at runtime, validates each name as an HTTP field-name token when the middleware
 is created, removes case-insensitive duplicates, and merges the result into an
 existing `Vary` response header. An existing `Vary: *` is preserved unchanged.
 
+Returning any other value throws a `TypeError` before rendering begins. Hono
+passes that error to the application's `onError` handler.
+
 The default Accept parser supports exact media types, `type/*`, `*/*`, media
 type parameters, quoted parameter values, and `q` quality values. A more
-specific matching range takes precedence, so
+specific matching range takes precedence. Empty parameter slots between
+semicolons are accepted as allowed by HTTP field grammar, so
+`Accept: text/html;` is valid. For example,
 `Accept: text/*;q=1, text/x-component;q=0` rejects Flight.
 
 ## Rendering Errors

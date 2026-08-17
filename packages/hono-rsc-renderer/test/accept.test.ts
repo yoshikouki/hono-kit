@@ -39,6 +39,12 @@ test("matches representation parameters and processes q in any position", () => 
   ).toBeFalse();
 });
 
+test("allows empty parameter slots between media range semicolons", () => {
+  expect(isMediaTypeAcceptable("text/html;", HTML)).toBeTrue();
+  expect(isMediaTypeAcceptable("text/html;;;q=0.5", HTML)).toBeTrue();
+  expect(isMediaTypeAcceptable("text/html;;;q=0", HTML)).toBeFalse();
+});
+
 test("does not split delimiters inside quoted parameter values", () => {
   expect(
     isMediaTypeAcceptable(

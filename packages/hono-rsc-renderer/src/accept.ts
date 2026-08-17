@@ -107,6 +107,9 @@ function parseMediaRange(value: string): MediaRange | undefined {
   let qualitySeen = false;
 
   for (const segment of segments.slice(1)) {
+    if (!segment.trim()) {
+      continue;
+    }
     const equalsIndex = segment.indexOf("=");
     if (equalsIndex <= 0) {
       return;
