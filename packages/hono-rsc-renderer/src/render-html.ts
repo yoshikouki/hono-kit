@@ -14,7 +14,7 @@ export interface RenderHtmlRuntime {
   renderToReadableStream: (
     node: ReactNode,
     options: {
-      bootstrapScriptContent: string;
+      bootstrapModules: string[];
       nonce?: string;
       onError: (error: unknown) => void;
       signal?: AbortSignal;
@@ -24,7 +24,7 @@ export interface RenderHtmlRuntime {
 
 export async function renderHtmlWithRuntime(
   rscStream: ReadableStream<Uint8Array>,
-  bootstrapScriptContent: string | Promise<string>,
+  clientEntryUrl: string,
   options: RenderHtmlOptions,
   runtime: RenderHtmlRuntime
 ): Promise<ReadableStream<Uint8Array>> {
@@ -32,7 +32,7 @@ export async function renderHtmlWithRuntime(
     nonce: options.nonce,
   });
   return runtime.renderToReadableStream(root, {
-    bootstrapScriptContent: await bootstrapScriptContent,
+    bootstrapModules: [clientEntryUrl],
     nonce: options.nonce,
     onError: options.onError ?? ((error) => console.error(error)),
     signal: options.signal,
