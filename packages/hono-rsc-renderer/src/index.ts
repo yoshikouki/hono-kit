@@ -170,6 +170,12 @@ function defaultNegotiate(c: Context): RscNegotiationResult {
     : "not-acceptable";
 }
 
+function invalidNegotiationResult(_result: never): never {
+  throw new TypeError(
+    'Invalid RSC negotiation result; expected "html", "rsc", or "not-acceptable"'
+  );
+}
+
 function htmlResponse(
   c: Context,
   stream: ReadableStream<Uint8Array>,
@@ -220,7 +226,7 @@ function createRenderer<E extends Env>(
     children: ReactNode,
     ...propsArgument: RscRenderPropsArgument
   ): Promise<Response> => {
-    const negotiationResult: unknown = options.negotiation.negotiate(c);
+    const negotiationResult = options.negotiation.negotiate(c);
     switch (negotiationResult) {
       case "not-acceptable":
         return notAcceptableResponse(c, options.negotiation.varyHeaders);
@@ -228,9 +234,7 @@ function createRenderer<E extends Env>(
       case "rsc":
         break;
       default:
-        throw new TypeError(
-          'Invalid RSC negotiation result; expected "html", "rsc", or "not-acceptable"'
-        );
+        return invalidNegotiationResult(negotiationResult);
     }
 
     const [props] = propsArgument;
