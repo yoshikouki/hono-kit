@@ -14,7 +14,7 @@
       "name": "@yoshikouki/hono-file-router",
       "version": "0.1.0-beta.0",
       "devDependencies": {
-        "hono": "^4.12.30",
+        "hono": "^4.13.5",
         "typescript": "^7.0.2",
         "vite": "^8.1.5",
       },
@@ -29,7 +29,7 @@
         "@types/react": "^19.2.17",
         "@types/react-dom": "^19.2.3",
         "@vitejs/plugin-rsc": "^0.5.34",
-        "hono": "^4.12.30",
+        "hono": "^4.13.5",
         "react": "^19.2.7",
         "react-dom": "^19.2.7",
         "typescript": "^7.0.2",
@@ -47,7 +47,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@yoshikouki/hono-file-router": "workspace:*",
-        "hono": "^4.12.30",
+        "hono": "^4.13.5",
       },
       "devDependencies": {
         "typescript": "^7.0.2",
@@ -61,7 +61,7 @@
       "dependencies": {
         "@yoshikouki/hono-file-router": "workspace:*",
         "@yoshikouki/hono-rsc-renderer": "workspace:*",
-        "hono": "^4.12.30",
+        "hono": "^4.13.5",
         "react": "^19.2.7",
         "react-dom": "^19.2.7",
       },
@@ -81,7 +81,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@yoshikouki/hono-rsc-renderer": "workspace:*",
-        "hono": "^4.12.30",
+        "hono": "^4.13.5",
         "react": "^19.2.7",
         "react-dom": "^19.2.7",
       },
@@ -100,7 +100,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@yoshikouki/hono-rsc-renderer": "workspace:*",
-        "hono": "^4.12.30",
+        "hono": "^4.13.5",
         "react": "^19.2.7",
         "react-dom": "^19.2.7",
       },
@@ -642,7 +642,7 @@
 
     "hast-util-whitespace": ["hast-util-whitespace@3.0.0", "https://npm.flatt.tech/hast-util-whitespace/-/hast-util-whitespace-3.0.0.tgz", { "dependencies": { "@types/hast": "^3.0.0" } }, "sha512-88JUN06ipLwsnv+dVn+OIYOvAuvBMy/Qoi6O7mQHxdPXpjy+Cd6xRkWwux7DKO+4sYILtLBRIKgsdpS2gQc7qw=="],
 
-    "hono": ["hono@4.12.30", "https://npm.flatt.tech/hono/-/hono-4.12.30.tgz", {}, "sha512-emn+JoJjrN9YTpRDS5it/UI2SO9BAE37T6I3d963RxcZ81G9A4pr2SZTEiiaiKbzx+NKRg5BZ89fCL7gCJCUog=="],
+    "hono": ["hono@4.13.5", "", {}, "sha512-O6+/eCYRkzzzy0rPWwKLiGBR1nFuUPZynnwjxN1MBA62NNqbT0wQEzQyK2gSO5yDIDB336sXQleAhOHrzlYyKw=="],
 
     "ignore": ["ignore@5.3.2", "https://npm.flatt.tech/ignore/-/ignore-5.3.2.tgz", {}, "sha512-hsBTNUqQTDwkWtcdYI2i06Y/nUBEsNEDJKjWdigLvegy8kDuJAS8uRlpkkcQpyEXL0Z/pjDy5HBmMjRCJ2gq+g=="],
 
