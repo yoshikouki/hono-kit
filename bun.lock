@@ -24,7 +24,7 @@
     },
     "packages/hono-rsc-renderer": {
       "name": "@yoshikouki/hono-rsc-renderer",
-      "version": "0.1.0-beta.2",
+      "version": "0.1.0-beta.4",
       "dependencies": {
         "rsc-html-stream": "^0.0.8",
       },
@@ -33,7 +33,7 @@
         "@types/react-dom": "^19.2.7",
         "@vitejs/plugin-rsc": "^0.5.34",
         "hono": "^4.12.30",
-        "react": "^19.2.7",
+        "react": "^19.2.8",
         "react-dom": "^19.2.8",
         "typescript": "^7.0.2",
         "vite": "^8.1.5",
@@ -65,7 +65,7 @@
         "@yoshikouki/hono-file-router": "workspace:*",
         "@yoshikouki/hono-rsc-renderer": "workspace:*",
         "hono": "^4.12.30",
-        "react": "^19.2.7",
+        "react": "^19.2.8",
         "react-dom": "^19.2.8",
       },
       "devDependencies": {
@@ -85,7 +85,7 @@
       "dependencies": {
         "@yoshikouki/hono-rsc-renderer": "workspace:*",
         "hono": "^4.12.30",
-        "react": "^19.2.7",
+        "react": "^19.2.8",
         "react-dom": "^19.2.8",
       },
       "devDependencies": {
@@ -104,7 +104,7 @@
       "dependencies": {
         "@yoshikouki/hono-rsc-renderer": "workspace:*",
         "hono": "^4.12.30",
-        "react": "^19.2.7",
+        "react": "^19.2.8",
         "react-dom": "^19.2.8",
       },
       "devDependencies": {
@@ -843,7 +843,7 @@
 
     "punycode": ["punycode@2.3.1", "https://npm.flatt.tech/punycode/-/punycode-2.3.1.tgz", {}, "sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg=="],
 
-    "react": ["react@19.2.7", "https://npm.flatt.tech/react/-/react-19.2.7.tgz", {}, "sha512-HNe9WslTbXmFK8o8cmwgAeJFSBvt1bPdHCVKtaaV+WlAN36mpT4hcRpwbf3fY56ar2oIXzsBpOAiIRHAdY0OlQ=="],
+    "react": ["react@19.2.8", "", {}, "sha512-PWaYA1L/q9u2u7xYQi+Y3L3Yfnie7XyLeaJICV1MGD6LprsBxcAqGjYyr0eY3p+QdsA+x/Irkt4Qif8D63+Sbw=="],
 
     "react-dom": ["react-dom@19.2.8", "", { "dependencies": { "scheduler": "^0.27.0" }, "peerDependencies": { "react": "^19.2.8" } }, "sha512-rVprimfGBG3DR+Tq0IQG2DT5PxKth1WIGDmj5yPmlzr4YBe7uyE+Du4oVqTDXZSHGGGXRtTJEGSSePyQCMBglQ=="],
 
