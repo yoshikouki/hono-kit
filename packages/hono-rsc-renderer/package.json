@@ -1,6 +1,6 @@
 {
   "name": "@yoshikouki/hono-rsc-renderer",
-  "version": "0.1.0-beta.3",
+  "version": "0.1.0-beta.4",
   "description": "React Server Components renderer middleware for Hono",
   "type": "module",
   "module": "./dist/index.js",
@@ -52,11 +52,11 @@
   },
   "devDependencies": {
     "@types/react": "^19.2.17",
-    "@types/react-dom": "^19.2.3",
+    "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-rsc": "^0.5.34",
     "hono": "^4.13.7",
-    "react": "^19.2.7",
-    "react-dom": "^19.2.7",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "typescript": "^7.0.2",
     "vite": "^8.1.5"
   },
