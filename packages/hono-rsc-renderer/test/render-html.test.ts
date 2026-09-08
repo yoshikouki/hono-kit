@@ -118,7 +118,7 @@ async function readEmbeddedFlight(html: string): Promise<Uint8Array> {
     "utf8"
   ).replace("export let rscStream", "let rscStream");
   runInNewContext(`${client}\nglobalThis.result = rscStream;`, context);
-  for (const match of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)) {
+  for (const match of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script\s*>/gi)) {
     runInNewContext(match[1] ?? "", context);
   }
   onLoaded();
