@@ -12,7 +12,7 @@
     },
     "packages/hono-file-router": {
       "name": "@yoshikouki/hono-file-router",
-      "version": "0.1.0-beta.0",
+      "version": "0.1.0-beta.1",
       "devDependencies": {
         "hono": "^4.13.7",
         "typescript": "^7.0.2",
@@ -24,7 +24,7 @@
     },
     "packages/hono-rsc-renderer": {
       "name": "@yoshikouki/hono-rsc-renderer",
-      "version": "0.1.0-beta.2",
+      "version": "0.1.0-beta.3",
       "dependencies": {
         "rsc-html-stream": "^0.0.8",
       },
