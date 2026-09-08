@@ -24,7 +24,7 @@
     },
     "packages/hono-rsc-renderer": {
       "name": "@yoshikouki/hono-rsc-renderer",
-      "version": "0.1.0-beta.1",
+      "version": "0.1.0-beta.2",
       "dependencies": {
         "rsc-html-stream": "^0.0.8",
       },
