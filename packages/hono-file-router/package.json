@@ -1,6 +1,6 @@
 {
   "name": "@yoshikouki/hono-file-router",
-  "version": "0.1.0-beta.0",
+  "version": "0.1.0-beta.1",
   "description": "File-based routing core for Hono",
   "type": "module",
   "module": "./dist/index.js",
@@ -38,7 +38,7 @@
     "hono": ">=4.0.0"
   },
   "devDependencies": {
-    "hono": "^4.12.30",
+    "hono": "^4.13.7",
     "typescript": "^7.0.2",
     "vite": "^8.1.5"
   }
