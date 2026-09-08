@@ -60,6 +60,27 @@ bun run build
 bun run test
 ```
 
+## Lint policy
+
+Lint checks should catch defects or make code easier to understand. Keep
+correctness, type-safety, security, accessibility, and unused-code checks.
+Formatting remains disabled; preserve meaningful grouping instead of enforcing
+an arbitrary order or a single equivalent spelling.
+
+The following inherited rules are explicitly disabled in `biome.jsonc`:
+
+- Import organization and all `useSorted*` Assist actions: preserve logical
+  grouping of imports, properties, members, JSX attributes, and package fields.
+- `useSortedClasses`: class order does not explain component behavior.
+- `useConsistentArrayType`, `useConsistentTypeDefinitions`,
+  `useConsistentArrowReturn`, `useConsistentObjectDefinitions`, and
+  `useConsistentMemberAccessibility`: choose the form that reads best locally.
+- `noShoutyConstants` and `useNumericSeparators`: capitalization and digit
+  grouping alone should not block a change.
+
+The JSON override also disables Assist explicitly because the Ultracite
+package.json preset enables it independently of the top-level setting.
+
 ## Publishing
 
 Each package version is an explicit release declaration. A pull request that
