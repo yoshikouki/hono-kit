@@ -225,8 +225,8 @@ rscRenderer(component, {
 Use `@vitejs/plugin-rsc` and provide two explicit build entries:
 
 - `rsc`: your Hono application entry point.
-- `client`: this package's browser entry, which fetches same-path Flight
-  responses and hydrates the document.
+- `client`: this package's browser entry, which hydrates the document from the
+  Flight payload embedded in the HTML. HMR fetches same-path Flight responses.
 
 ```ts
 import rsc from "@vitejs/plugin-rsc";
@@ -326,3 +326,19 @@ c.render(<AboutPage />); // TypeScript error
 The renderer is verified by `samples/rsc-vite-basic`, which now
 uses Hono routes directly and checks same-path HTML and Flight responses from
 the built Vite RSC handler.
+
+## Initial hydration
+
+HTML responses embed the Flight payload from the same render. The browser entry
+hydrates from that embedded stream without another request. HMR still requests
+Flight from the current URL. The configured CSP nonce also applies to embedded
+Flight scripts.
+
+The standard `rscRenderer()` and `c.render()` API is unchanged. Rebuild and deploy
+HTML and browser assets together when upgrading from beta.1.
+
+If you override `renderHtml` while using this package's browser entry, your HTML
+must embed Flight data in the `rsc-html-stream/client` wire format. A custom HTML
+renderer that only emits HTML must use a matching custom browser entry instead.
+The default HTML renderer preserves binary Flight data with a corrected copy of
+`rsc-html-stream@0.0.8`'s server injector.
