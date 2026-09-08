@@ -1,6 +1,6 @@
 {
   "name": "@yoshikouki/hono-rsc-renderer",
-  "version": "0.1.0-beta.2",
+  "version": "0.1.0-beta.3",
   "description": "React Server Components renderer middleware for Hono",
   "type": "module",
   "module": "./dist/index.js",
