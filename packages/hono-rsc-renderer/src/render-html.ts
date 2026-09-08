@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { injectRSCPayload } from "rsc-html-stream/server";
+import { injectRSCPayload } from "./inject-rsc-payload";
 
 export interface RenderHtmlOptions {
   nonce?: string;
