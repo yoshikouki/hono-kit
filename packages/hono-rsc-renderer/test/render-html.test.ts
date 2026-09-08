@@ -23,7 +23,7 @@ test("passes the same raw nonce to Vite RSC and React DOM", async () => {
   const calls: Array<{ name: string; options: unknown }> = [];
   const runtime: RenderHtmlRuntime = {
     createFromReadableStream: (stream, options) => {
-      expect(stream).toBe(rscStream);
+      expect(stream).toBeInstanceOf(ReadableStream);
       calls.push({ name: "vite-rsc", options });
       return Promise.resolve(root);
     },
@@ -41,7 +41,10 @@ test("passes the same raw nonce to Vite RSC and React DOM", async () => {
     runtime
   );
 
-  expect(result).toBe(htmlStream);
+  const html = await new Response(result).text();
+  expect(html).toContain("__FLIGHT_DATA");
+  expect(html).toContain('nonce="request-nonce"');
+  expect(html).toContain("rsc");
   expect(calls).toEqual([
     { name: "vite-rsc", options: { nonce: "request-nonce" } },
     {
@@ -69,13 +72,14 @@ test("passes undefined to both runtimes when no nonce is configured", async () =
     },
   };
 
-  await renderHtmlWithRuntime(
+  const result = await renderHtmlWithRuntime(
     textStream("rsc"),
     "/assets/entry.browser.js",
     {},
     runtime
   );
 
+  expect(await new Response(result).text()).toContain("__FLIGHT_DATA");
   expect(calls[0]).toEqual({
     name: "vite-rsc",
     options: { nonce: undefined },

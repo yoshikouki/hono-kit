@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { injectRSCPayload } from "rsc-html-stream/server";
 
 export interface RenderHtmlOptions {
   nonce?: string;
@@ -28,13 +29,17 @@ export async function renderHtmlWithRuntime(
   options: RenderHtmlOptions,
   runtime: RenderHtmlRuntime
 ): Promise<ReadableStream<Uint8Array>> {
-  const root = await runtime.createFromReadableStream(rscStream, {
+  const [forSsr, forPayload] = rscStream.tee();
+  const root = await runtime.createFromReadableStream(forSsr, {
     nonce: options.nonce,
   });
-  return runtime.renderToReadableStream(root, {
+  const html = await runtime.renderToReadableStream(root, {
     bootstrapModules: [clientEntryUrl],
     nonce: options.nonce,
     onError: options.onError ?? ((error) => console.error(error)),
     signal: options.signal,
   });
+  return html.pipeThrough(injectRSCPayload(forPayload, {
+    nonce: options.nonce?.replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;"),
+  }));
 }

@@ -326,3 +326,10 @@ c.render(<AboutPage />); // TypeScript error
 The renderer is verified by `samples/rsc-vite-basic`, which now
 uses Hono routes directly and checks same-path HTML and Flight responses from
 the built Vite RSC handler.
+
+## Initial hydration
+
+HTML responses embed the Flight payload from the same render. The browser entry
+hydrates from that embedded stream without another request. HMR still requests
+Flight from the current URL. The configured CSP nonce also applies to embedded
+Flight scripts.
