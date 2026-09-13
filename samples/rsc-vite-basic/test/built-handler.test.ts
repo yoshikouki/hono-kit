@@ -26,6 +26,8 @@ test("built Vite RSC handler serves HTML", async () => {
   expect(response.status).toBe(200);
   expect(response.headers.get("Content-Type")).toContain("text/html");
   expect(html).toContain("RSC Basic");
+  expect(html).toContain("React 19.3 count");
+  expect(html).not.toContain("data-msg=");
   expect(html).toMatch(/<script\b[^>]*\bid=/i);
 });
 
