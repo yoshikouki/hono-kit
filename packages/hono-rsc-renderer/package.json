@@ -51,11 +51,11 @@
     "react-dom": ">=19.0.0"
   },
   "devDependencies": {
-    "@types/react": "^19.2.17",
+    "@types/react": "^19.3.0",
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-rsc": "^0.5.34",
     "hono": "^4.13.7",
-    "react": "^19.2.8",
+    "react": "^19.3.0",
     "react-dom": "^19.2.8",
     "typescript": "^7.0.2",
     "vite": "^8.1.5"
