@@ -342,3 +342,33 @@ must embed Flight data in the `rsc-html-stream/client` wire format. A custom HTM
 renderer that only emits HTML must use a matching custom browser entry instead.
 The default HTML renderer preserves binary Flight data with a corrected copy of
 `rsc-html-stream@0.0.8`'s server injector.
+
+## React 19.3 and navigation
+
+The samples pin `react`, `react-dom`, and `react-server-dom-webpack` to
+`19.3.0`, with matching `@types/react` and `@types/react-dom`. Install all three
+runtime packages in the consuming application and upgrade them together:
+
+```sh
+npm install --save-exact react@19.3.0 react-dom@19.3.0 react-server-dom-webpack@19.3.0
+npm install --save-dev --save-exact @types/react@19.3.0 @types/react-dom@19.3.0
+```
+
+Vite RSC uses an application's installed `react-server-dom-webpack` instead of
+its bundled Flight runtime; see [Vite's version selection guidance](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-rsc/README.md#using-different-react-versions).
+Rebuild HTML and browser assets together. The renderer's peer range still allows
+React 19; this update does not make 19.3 APIs mandatory for existing applications.
+
+The default browser entry hydrates the document and refreshes Flight during HMR.
+It does not intercept links, manage browser history, or perform client-side page
+navigation. Same-path Flight support is a transport, not a client router.
+
+| Goal | Integration |
+| --- | --- |
+| Animate ordinary page links | Keep document navigation and opt both pages into CSS cross-document view transitions. No client router is required. |
+| Animate updates within a page | Use React 19.3 `ViewTransition` in a client component, with state updates inside `startTransition`. |
+| Animate page changes through React | Provide a client navigation layer that fetches Flight and updates the existing React tree within a Transition. The default entry does not provide this. |
+
+See the page-local example in `samples/rsc-vite-basic`,
+[React ViewTransition](https://react.dev/reference/react/ViewTransition), and
+[CSS cross-document transitions](https://developer.chrome.com/docs/web-platform/view-transitions/cross-document).
