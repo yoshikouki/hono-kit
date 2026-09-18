@@ -19,7 +19,7 @@
     "react-server-dom-webpack": "19.3.0"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "^1.45.1",
+    "@cloudflare/vite-plugin": "^1.54.9",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-rsc": "^0.5.34",
