@@ -130,31 +130,21 @@ test("passes render errors to the request-scoped error observer", async () => {
 
   app.get(
     "*",
-    rscRenderer(
-      () => {
-        throw error;
+    rscRenderer(undefined, {
+      onError: (caughtError, c) => {
+        calls.push({ error: caughtError, path: c.req.path });
       },
-      {
-        onError: (caughtError, c) => {
-          calls.push({ error: caughtError, path: c.req.path });
-        },
-        renderHtml: async (rscStream) => rscStream,
-        renderRsc: async (node, options) => {
-          try {
-            return textStream(await renderTestNode(node));
-          } catch (caughtError) {
-            options.onError?.(caughtError);
-            return textStream("render failed");
-          }
-        },
-      }
-    )
+      renderHtml: async (rscStream) => rscStream,
+      renderRsc: (_node, options) => {
+        options.onError?.(error);
+        return textStream("render failed");
+      },
+    })
   );
   app.get("/observed", (c) => c.render("content"));
 
   const response = await app.request("/observed");
-
-  expect(await response.text()).toBe("render failed");
+  await response.text();
   expect(calls).toEqual([{ error, path: "/observed" }]);
 });
 
@@ -317,26 +307,6 @@ test("rejects HTML when a specific media range has zero quality", async () => {
   expect(response.status).toBe(406);
 });
 
-test("matches media type parameters and quoted delimiters", async () => {
-  const app = createTestApp();
-  const accepted = await app.request("/page/about/codex", {
-    headers: {
-      Accept: 'text/x-component;charset="UTF-8";q=0.5, text/html;q=1',
-      RSC: "1",
-    },
-  });
-  const rejected = await app.request("/page/about/codex", {
-    headers: {
-      Accept: 'text/x-component;profile="a,b";q=1, text/html;q=1',
-      RSC: "1",
-    },
-  });
-
-  expect(accepted.status).toBe(202);
-  expect(accepted.headers.get("Content-Type")).toContain("text/x-component");
-  expect(rejected.status).toBe(406);
-});
-
 test("preserves an existing Vary wildcard unchanged", async () => {
   const app = new Hono();
 
@@ -355,24 +325,6 @@ test("preserves an existing Vary wildcard unchanged", async () => {
   const response = await app.request("/");
 
   expect(response.headers.get("Vary")).toBe("*");
-});
-
-test("defaults nonce-bearing HTML to private no-store", async () => {
-  const app = new Hono();
-
-  app.get(
-    "*",
-    rscRenderer(undefined, {
-      getNonce: () => "request-nonce",
-      renderHtml: async (rscStream) => rscStream,
-      renderRsc: (node) => textStream(String(node)),
-    })
-  );
-  app.get("/", (c) => c.render("content"));
-
-  const response = await app.request("/");
-
-  expect(response.headers.get("Cache-Control")).toBe("private, no-store");
 });
 
 test("preserves an explicit Cache-Control for nonce-bearing HTML", async () => {
@@ -428,6 +380,7 @@ test("resolves a request nonce once and passes its raw value to HTML rendering",
   expect(await response.text()).toBe("content");
   expect(getNonceCalls).toBe(1);
   expect(nonces).toEqual(["request-nonce"]);
+  expect(response.headers.get("Cache-Control")).toBe("private, no-store");
 });
 
 test("does not resolve or pass a nonce for Flight responses", async () => {

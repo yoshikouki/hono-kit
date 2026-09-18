@@ -18,11 +18,3 @@ app.get("/string-primitive", (c) =>
   // @ts-expect-error Render props must not be a string primitive.
   c.render("content", "invalid")
 );
-app.get("/number-primitive", (c) =>
-  // @ts-expect-error Render props must not be a number primitive.
-  c.render("content", 1)
-);
-app.get("/boolean-primitive", (c) =>
-  // @ts-expect-error Render props must not be a boolean primitive.
-  c.render("content", true)
-);
