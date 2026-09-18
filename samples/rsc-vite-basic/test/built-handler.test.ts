@@ -18,19 +18,6 @@ function scriptTags(html: string): string[] {
   return html.match(/<script\b[^>]*>/gi) ?? [];
 }
 
-test("built Vite RSC handler serves HTML", async () => {
-  const handler = await loadBuiltHandler();
-  const response = await handler(new Request("https://example.test/"));
-  const html = await response.text();
-
-  expect(response.status).toBe(200);
-  expect(response.headers.get("Content-Type")).toContain("text/html");
-  expect(html).toContain("RSC Basic");
-  expect(html).toContain("React 19.3 count");
-  expect(html).not.toContain("data-msg=");
-  expect(html).toMatch(/<script\b[^>]*\bid=/i);
-});
-
 test("built HTML gives every React and Vite owned script the request CSP nonce", async () => {
   const handler = await loadBuiltHandler();
   const [firstResponse, secondResponse] = await Promise.all([
@@ -41,6 +28,12 @@ test("built HTML gives every React and Vite owned script the request CSP nonce",
     firstResponse.text(),
     secondResponse.text(),
   ]);
+  expect(firstResponse.status).toBe(200);
+  expect(firstResponse.headers.get("Content-Type")).toContain("text/html");
+  expect(firstHtml).toContain("RSC Basic");
+  expect(firstHtml).toContain("React 19.3 count");
+  expect(firstHtml).not.toContain("data-msg=");
+  expect(firstHtml).toMatch(/<script\b[^>]*\bid=/i);
   const firstNonce = responseNonce(firstResponse);
   const secondNonce = responseNonce(secondResponse);
 

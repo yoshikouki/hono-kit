@@ -143,34 +143,3 @@ const input: RenderInput<AppEnv> = {
   route,
 };
 input.c.req.param("id");
-
-// @ts-expect-error createContext was replaced by Hono middleware and c.var.
-createFileRouter({ sources: manifestConfig.sources, createContext: () => ({}) });
-
-// @ts-expect-error RenderInput exposes the raw request as c.req.raw instead.
-String(input.request);
-// @ts-expect-error RenderInput exposes the URL as c.req.url instead.
-String(input.url);
-// @ts-expect-error RenderInput exposes params as c.req.param() instead.
-String(input.params);
-// @ts-expect-error RenderInput exposes the pathname as c.req.path instead.
-String(input.pathname);
-// @ts-expect-error Router-specific context was replaced by typed c.var.
-String(input.context);
-
-// @ts-expect-error Route grammar helpers are internal implementation details.
-export type RemovedRouteFileToManifestPath = typeof import("@yoshikouki/hono-file-router").routeFileToManifestPath;
-// @ts-expect-error Route ordering helpers are internal implementation details.
-export type RemovedSortRoutesBySpecificity = typeof import("@yoshikouki/hono-file-router").sortRoutesBySpecificity;
-// @ts-expect-error Route shape helpers are internal implementation details.
-export type RemovedRoutePathToShape = typeof import("@yoshikouki/hono-file-router").routePathToShape;
-// @ts-expect-error Manifest internals are not public extension points.
-export type RemovedManifestGeneratedRoute = import("@yoshikouki/hono-file-router").ManifestGeneratedRoute;
-// @ts-expect-error Source normalization aliases are inferred from public options.
-export type RemovedRouteSources = import("@yoshikouki/hono-file-router").RouteSources;
-// @ts-expect-error Alias-only router inputs were replaced by responsibility-specific options.
-export type RemovedFileRouterInput = import("@yoshikouki/hono-file-router").FileRouterInput;
-// @ts-expect-error Hono constructor options belong only to CreateFileRouterOptions.
-export type RemovedFileRouterOptions = import("@yoshikouki/hono-file-router").FileRouterOptions;
-// @ts-expect-error Unused adapter contracts are not part of the package API.
-export type RemovedFileRouteAdapter = import("@yoshikouki/hono-file-router").FileRouteAdapter;

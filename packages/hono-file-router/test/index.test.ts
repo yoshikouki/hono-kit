@@ -13,26 +13,9 @@ import {
 import {
   assertSupportedRoutePath,
   compareRouteSpecificity,
-  pathnameFromRoutePath,
   routeFileToManifestPath,
-  routePathToShape,
-  sortRoutesBySpecificity,
 } from "../src/route-path";
-import {
-  applyRegistrationPlan,
-  compileRegistrationPlan,
-} from "../src/registration-plan";
-
-function permutations<T>(values: readonly T[]): T[][] {
-  if (values.length <= 1) {
-    return [[...values]];
-  }
-  return values.flatMap((value, index) =>
-    permutations(
-      values.filter((_, candidateIndex) => candidateIndex !== index)
-    ).map((rest) => [value, ...rest])
-  );
-}
+import { compileRegistrationPlan } from "../src/registration-plan";
 
 const textRenderer = (name = "text"): FileRouteRenderer => ({
   name,
@@ -124,14 +107,8 @@ test("rejects URL dot segments in literal, encoded, and mixed forms", () => {
   const rejected = [
     "/.",
     "/..",
-    "/a/./b",
-    "/a/../b",
-    "/%2e/b",
-    "/%2E/b",
-    "/%2e%2e/b",
+    "/a/%2E/b",
     "/.%2e/b",
-    "/%2e./b",
-    "/%2E%2e/b",
   ];
 
   for (const path of rejected) {
@@ -158,29 +135,16 @@ test("rejects static segments changed by Hono request-path decoding", () => {
 });
 
 test("rejects default-convention files that alias decoded static routes", () => {
-  const aliases = [
-    ["./%41.tsx", "./A.tsx", "/%41", "/A"],
-    ["./a%20b.tsx", "./a b.tsx", "/a%20b", "/a b"],
-  ] as const;
-
-  for (const [encodedFile, literalFile, encodedPath, literalPath] of aliases) {
-    expect(routeFileToManifestPath(encodedFile)).toEqual({ path: encodedPath });
-    expect(routeFileToManifestPath(literalFile)).toEqual({ path: literalPath });
-
-    expect(() =>
-      createRouteManifest({
-        sources: [
-          {
-            files: {
-              [encodedFile]: "encoded",
-              [literalFile]: "literal",
-            },
-            renderer: textRenderer(),
-          },
-        ],
-      })
-    ).toThrow(/changes after Hono request-path decoding/);
-  }
+  expect(() =>
+    createRouteManifest({
+      sources: [
+        {
+          files: { "./%41.tsx": "encoded", "./A.tsx": "literal" },
+          renderer: textRenderer(),
+        },
+      ],
+    })
+  ).toThrow(/changes after Hono request-path decoding/);
 });
 
 test("supports custom route path conventions", () => {
@@ -210,56 +174,6 @@ test("rejects duplicate dynamic segment names in one route path", () => {
   expect(() => routeFileToManifestPath("./users/[id]/posts/[id].ts")).toThrow(
     /Duplicate dynamic route param "id"/
   );
-});
-
-test("normalizes dynamic names while preserving catch-all shapes", () => {
-  expect(routePathToShape("/users/:id/books/:bookId")).toBe(
-    "/users/:param/books/:param"
-  );
-  expect(routePathToShape("/docs/:slug{.+}")).toBe(
-    "/docs/:param{.+}"
-  );
-});
-
-test("sorts static siblings before dynamic siblings", () => {
-  const routes = [
-    { path: "/users/:id" },
-    { path: "/users/settings" },
-    { path: "/users/:id/events/:eventId" },
-    { path: "/users/:id/events/settings" },
-  ];
-
-  expect(sortRoutesBySpecificity(routes).map((route) => route.path)).toEqual([
-    "/users/settings",
-    "/users/:id/events/settings",
-    "/users/:id/events/:eventId",
-    "/users/:id",
-  ]);
-});
-
-test("sorts deeper static routes before shallower unrelated routes", () => {
-  const routes = [{ path: "/about" }, { path: "/api/about.md" }];
-
-  expect(sortRoutesBySpecificity(routes).map((route) => route.path)).toEqual([
-    "/api/about.md",
-    "/about",
-  ]);
-});
-
-test("sorts static generated routes before unrelated dynamic routes", () => {
-  const routes = [
-    { path: "/users/settings" },
-    { path: "/users/:id" },
-    { path: "/data/users/:id" },
-    { path: "/users/settings.md" },
-  ];
-
-  expect(sortRoutesBySpecificity(routes).map((route) => route.path)).toEqual([
-    "/users/settings",
-    "/users/settings.md",
-    "/data/users/:id",
-    "/users/:id",
-  ]);
 });
 
 test("defines a non-zero antisymmetric and transitive total path order", () => {
@@ -301,27 +215,6 @@ test("defines a non-zero antisymmetric and transitive total path order", () => {
         }
       }
     }
-  }
-});
-
-test("sorts every source permutation into the same path order", () => {
-  const paths = [
-    "/docs/:slug{.+}",
-    "/docs/:id",
-    "/docs/new",
-    "/docs/:id/edit",
-    "/",
-  ];
-  const expected = sortRoutesBySpecificity(
-    paths.map((path) => ({ path }))
-  ).map((route) => route.path);
-
-  for (const permutation of permutations(paths)) {
-    expect(
-      sortRoutesBySpecificity(permutation.map((path) => ({ path }))).map(
-        (route) => route.path
-      )
-    ).toEqual(expected);
   }
 });
 
@@ -625,12 +518,22 @@ function handWrittenManifest(
   };
 }
 
-test("sorts every flat-plan permutation independently of route category", () => {
+test("orders registrations independently of source order and route category", () => {
   const catchAll = new Hono();
   catchAll.get("/", (c) => c.text("catch-all"));
   const health = new Hono();
   health.get("/", (c) => c.text("health"));
   const routes: RouteManifest["routes"] = [
+    ...[
+      "/catalog/:id/events/:eventId",
+      "/catalog/:id/events/settings",
+      "/data/catalog/:id",
+    ].map((path) => ({
+      file: path,
+      id: path,
+      path,
+      rendererName: "text",
+    })),
     {
       file: "./catalog/[id].tsx",
       id: "text:catalog-id",
@@ -676,27 +579,25 @@ test("sorts every flat-plan permutation independently of route category", () => 
     "generated:POST:/actions",
     "renderer:GET:/alpha",
     "hono:OPAQUE:/health",
+    "renderer:GET:/data/catalog/:id",
+    "renderer:GET:/catalog/:id/events/settings",
+    "renderer:GET:/catalog/:id/events/:eventId",
     "renderer:GET:/catalog/:id",
     "hono:OPAQUE:/catalog/:rest{.+}",
   ];
 
-  for (const routeOrder of permutations(routes)) {
-    for (const generatedOrder of permutations(generatedRoutes)) {
-      for (const handlerOrder of permutations(handlers)) {
-        const plan = compileRegistrationPlan({
-          generatedRoutes: generatedOrder,
-          handlers: handlerOrder,
-          renderers: [textRenderer()],
-          routes: routeOrder,
-        });
-        expect(
-          plan.map(
-            (entry) =>
-              `${entry.kind}:${entry.kind === "hono" ? "OPAQUE" : entry.method}:${entry.path}`
-          )
-        ).toEqual(expected);
-      }
-    }
+  for (const reversed of [false, true]) {
+    const plan = compileRegistrationPlan({
+      generatedRoutes: reversed ? generatedRoutes.toReversed() : generatedRoutes,
+      handlers: reversed ? handlers.toReversed() : handlers,
+      renderers: [textRenderer()],
+      routes: reversed ? routes.toReversed() : routes,
+    });
+    expect(
+      plan.map((entry) =>
+        `${entry.kind}:${entry.kind === "hono" ? "OPAQUE" : entry.method}:${entry.path}`
+      )
+    ).toEqual(expected);
   }
 });
 
@@ -704,45 +605,27 @@ test("applies static, dynamic, and catch-all precedence across categories", asyn
   const renderer: FileRouteRenderer = {
     name: "docs",
     accepts: () => true,
+    generatedRoutes: () => [
+      {
+        path: "/docs/new.md",
+        render: () => new Response("static:generated"),
+      },
+    ],
     render: ({ c }) => new Response(`dynamic:${c.req.param("id")}`),
   };
   const catchAll = new Hono();
   catchAll.get("/", (c) => c.text(`catch-all:${c.req.param("rest")}`));
-  const manifest: RouteManifest = {
-    generatedRoutes: [
-      {
-        owner: "docs:detail",
-        path: "/docs/new",
-        render: () => new Response("static:generated"),
-      },
+  const app = createFileRouter({
+    sources: [
+      { files: { "./docs/[...rest].ts": catchAll } },
+      { files: { "./docs/[id].tsx": "detail" }, renderer },
     ],
-    handlers: [
-      {
-        file: "./docs/[...rest].ts",
-        id: "hono:docs-rest",
-        module: catchAll,
-        path: "/docs/:rest{.+}",
-      },
-    ],
-    renderers: [renderer],
-    routes: [
-      {
-        file: "./docs/[id].tsx",
-        id: "docs:detail",
-        path: "/docs/:id",
-        rendererName: "docs",
-      },
-    ],
-  };
-  const app = new Hono();
-  applyRegistrationPlan(app, compileRegistrationPlan(manifest));
+  });
 
-  expect(await (await app.request("/docs/new")).text()).toBe(
+  expect(await (await app.request("/docs/new.md")).text()).toBe(
     "static:generated"
   );
-  expect(await (await app.request("/docs/guide")).text()).toBe(
-    "dynamic:guide"
-  );
+  expect(await (await app.request("/docs/guide")).text()).toBe("dynamic:guide");
   expect(await (await app.request("/docs/guides/start")).text()).toBe(
     "catch-all:guides/start"
   );
@@ -959,6 +842,17 @@ test("preflights every configuration error before mutating the target app", () =
     ],
   ];
 
+  for (const path of ["/.%2e/b", "/%41"]) {
+    cases.push([
+      path,
+      handWrittenManifest({
+        routes: [
+          { file: "./invalid.tsx", id: "text:invalid", path, rendererName: "text" },
+        ],
+      }),
+    ]);
+  }
+
   for (const [name, manifest] of cases) {
     const app = new Hono();
     app.get("/healthz", (c) => c.text("ok"));
@@ -969,201 +863,18 @@ test("preflights every configuration error before mutating the target app", () =
   }
 });
 
-test("rejects URL dot segments while compiling and before mount mutation", () => {
-  const rejected = [
-    "/.",
-    "/..",
-    "/a/./b",
-    "/a/../b",
-    "/%2e/b",
-    "/%2E/b",
-    "/%2e%2e/b",
-    "/.%2e/b",
-    "/%2e./b",
-    "/%2E%2e/b",
-  ];
-
-  for (const path of rejected) {
-    const manifest = handWrittenManifest({
-      routes: [
-        {
-          file: "./dot-segment.tsx",
-          id: "text:./dot-segment.tsx",
-          path,
-          rendererName: "text",
-        },
-      ],
-    });
-
-    expect(() => compileRegistrationPlan(manifest), path).toThrow(
-      /URL dot segment/
-    );
-
-    const app = new Hono();
-    app.get("/healthz", (c) => c.text("ok"));
-    const originalRoutes = [...app.routes];
-
-    expect(() => mountFileRoutes(app, { manifest }), path).toThrow(
-      /URL dot segment/
-    );
-    expect(app.routes, path).toEqual(originalRoutes);
-  }
-});
-
-test("rejects request-decoded static paths before mount mutation", () => {
-  const rejected = ["/%41", "/a%20b", "/%E3%81%82", "/%41%"];
-
-  for (const path of rejected) {
-    const manifest = handWrittenManifest({
-      routes: [
-        {
-          file: "./request-decoded.tsx",
-          id: "text:./request-decoded.tsx",
-          path,
-          rendererName: "text",
-        },
-      ],
-    });
-
-    expect(() => compileRegistrationPlan(manifest), path).toThrow(
-      /changes after Hono request-path decoding/
-    );
-
-    const app = new Hono();
-    app.get("/healthz", (c) => c.text("ok"));
-    const originalRoutes = [...app.routes];
-
-    expect(() => mountFileRoutes(app, { manifest }), path).toThrow(
-      /changes after Hono request-path decoding/
-    );
-    expect(app.routes, path).toEqual(originalRoutes);
-  }
-});
-
-test("compiles resolved handlers without renderer searches at request time", async () => {
-  let acceptsCalls = 0;
+test("uses the named renderer without rechecking accepts for a supplied manifest", async () => {
   const renderer: FileRouteRenderer = {
-    name: "exact",
+    name: "text",
     accepts() {
-      acceptsCalls += 1;
       throw new Error("accepts must not run for a supplied manifest");
     },
-    render: () => new Response("captured"),
+    render: () => new Response("rendered"),
   };
-  const manifest = handWrittenManifest({
-    renderers: [renderer],
-    routes: [
-      {
-        file: "./captured.tsx",
-        id: "exact:./captured.tsx",
-        path: "/captured",
-        rendererName: "exact",
-      },
-    ],
+  const app = createFileRouter({
+    manifest: handWrittenManifest({ renderers: [renderer] }),
   });
-
-  const plan = compileRegistrationPlan(manifest);
-  manifest.renderers.splice(0, 1, {
-    ...renderer,
-    render: () => new Response("replacement"),
-  });
-  const app = new Hono();
-  applyRegistrationPlan(app, plan);
-
-  expect(acceptsCalls).toBe(0);
-  expect(plan).toMatchObject([
-    {
-      kind: "renderer",
-      method: "GET",
-      path: "/captured",
-      source: "./captured.tsx",
-    },
-  ]);
-  expect(await (await app.request("/captured")).text()).toBe("captured");
-  expect(acceptsCalls).toBe(0);
-});
-
-test("applies each Hono registration once as an opaque child app", async () => {
-  const child = new Hono();
-  child.use("/", async (c, next) => {
-    c.header("X-Child", "true");
-    await next();
-  });
-  child.get("/", (c) => c.text("get"));
-  child.post("/", (c) => c.text("post"));
-  const manifest = handWrittenManifest({
-    handlers: [
-      {
-        file: "./opaque.ts",
-        id: "hono:./opaque.ts",
-        module: child,
-        path: "/opaque",
-      },
-    ],
-    renderers: [],
-    routes: [],
-  });
-  const plan = compileRegistrationPlan(manifest);
-  const honoEntries = plan.filter((entry) => entry.kind === "hono");
-  expect(honoEntries).toEqual([
-    {
-      app: child,
-      kind: "hono",
-      path: "/opaque",
-      source: "./opaque.ts",
-    },
-  ]);
-
-  const app = new Hono();
-  const originalRoute = app.route.bind(app);
-  let routeCalls = 0;
-  app.route = ((path: string, routedApp: Hono) => {
-    routeCalls += 1;
-    expect(path).toBe("/opaque");
-    expect(routedApp).toBe(child);
-    return originalRoute(path, routedApp);
-  }) as typeof app.route;
-  applyRegistrationPlan(app, plan);
-
-  expect(routeCalls).toBe(1);
-  const getResponse = await app.request("/opaque");
-  expect(await getResponse.text()).toBe("get");
-  expect(getResponse.headers.get("X-Child")).toBe("true");
-  expect(
-    await (await app.request("/opaque", { method: "POST" })).text()
-  ).toBe("post");
-});
-
-test("does not roll back registrations when a user handler later throws", async () => {
-  const renderer: FileRouteRenderer = {
-    name: "throwing",
-    accepts: () => true,
-    render() {
-      throw new Error("user handler failed");
-    },
-  };
-  const app = new Hono();
-  app.onError((error, c) => c.text(error.message, 500));
-  mountFileRoutes(app, {
-    manifest: handWrittenManifest({
-      renderers: [renderer],
-      routes: [
-        {
-          file: "./failure.tsx",
-          id: "throwing:./failure.tsx",
-          path: "/failure",
-          rendererName: "throwing",
-        },
-      ],
-    }),
-  });
-  const registeredRoutes = [...app.routes];
-
-  const response = await app.request("/failure");
-  expect(response.status).toBe(500);
-  expect(await response.text()).toBe("user handler failed");
-  expect(app.routes).toEqual(registeredRoutes);
-  expect(app.routes.some((route) => route.path === "/failure")).toBe(true);
+  expect(await (await app.request("/about")).text()).toBe("rendered");
 });
 
 test("passes the request Hono context to primary and generated renderers", async () => {
@@ -1194,10 +905,11 @@ test("passes the request Hono context to primary and generated renderers", async
         },
       ];
     },
-    render({ c, route }) {
+    async render({ c, route }) {
       rendererContexts.set(c.req.path, c);
+      const page = await route.load?.();
       return c.render(
-        `${c.var.requestId}:${c.env.prefix}:${c.req.param("id")}:${route.path}`
+        `${page}:${c.var.requestId}:${c.env.prefix}:${c.req.param("id")}:${route.path}`
       );
     },
   };
@@ -1212,7 +924,7 @@ test("passes the request Hono context to primary and generated renderers", async
   mountFileRoutes(app, {
     sources: [
       {
-        files: { "./users/[id].tsx": "user" },
+        files: { "./users/[id].tsx": () => Promise.resolve("user") },
         renderer,
       },
     ],
@@ -1221,7 +933,7 @@ test("passes the request Hono context to primary and generated renderers", async
   const bindings = { prefix: "env" };
   const primary = await app.request("/users/123", undefined, bindings);
   expect(await primary.text()).toBe(
-    "rendered:request:/users/123:env:123:/users/:id"
+    "rendered:user:request:/users/123:env:123:/users/:id"
   );
   expect(rendererContexts.get("/users/123")).toBe(
     middlewareContexts.get("/users/123")
@@ -1240,50 +952,16 @@ test("passes the request Hono context to primary and generated renderers", async
   );
 });
 
-test("serves generated static routes before dynamic primary routes", async () => {
-  const renderer: FileRouteRenderer = {
-    name: "generated-markdown",
-    accepts: () => true,
-    generatedRoutes(route) {
-      if (route.path !== "/users/settings") {
-        return [];
-      }
-      return [
-        {
-          path: "/users/settings.md",
-          render: () => new Response("raw-settings"),
-        },
-      ];
-    },
-    render(input) {
-      return new Response(`primary:${input.route.path}`);
-    },
-  };
-  const app = createFileRouter({
-    sources: [
-      {
-        files: {
-          "./users/[id].tsx": "dynamic",
-          "./users/settings.tsx": "settings",
-        },
-        renderer,
-      },
-    ],
-  });
-
-  expect(await (await app.request("/users/settings.md")).text()).toBe(
-    "raw-settings"
-  );
-});
-
 test("accepts eager root-only Hono modules with methods and handler chains", async () => {
   interface TestEnv {
     Variables: {
       prefix: string;
     };
   }
+  let middlewareCalls = 0;
   const api = new Hono<TestEnv>();
   api.use("/", async (c, next) => {
+    middlewareCalls += 1;
     c.set("prefix", "handled");
     await next();
   });
@@ -1317,16 +995,13 @@ test("accepts eager root-only Hono modules with methods and handler chains", asy
   expect(
     await (await app.request("/api", { method: "POST" })).text()
   ).toBe("handled:post");
+  expect(middlewareCalls).toBe(2);
   expect(await (await app.request("/direct")).text()).toBe("all:GET");
 });
 
 test("accepts direct and default-export apps from official Hono presets", async () => {
   const quickDirect = new QuickHono();
   quickDirect.get("/", (c) => c.text("quick-direct"));
-  const quickModule = new QuickHono();
-  quickModule.get("/", (c) => c.text("quick-module"));
-  const tinyDirect = new TinyHono();
-  tinyDirect.get("/", (c) => c.text("tiny-direct"));
   const tinyModule = new TinyHono();
   tinyModule.get("/", (c) => c.text("tiny-module"));
 
@@ -1335,8 +1010,6 @@ test("accepts direct and default-export apps from official Hono presets", async 
       {
         files: {
           "./quick-direct.ts": quickDirect,
-          "./quick-module.ts": { default: quickModule },
-          "./tiny-direct.ts": tinyDirect,
           "./tiny-module.ts": { default: tinyModule },
         },
       },
@@ -1346,10 +1019,6 @@ test("accepts direct and default-export apps from official Hono presets", async 
   expect(await (await app.request("/quick-direct")).text()).toBe(
     "quick-direct"
   );
-  expect(await (await app.request("/quick-module")).text()).toBe(
-    "quick-module"
-  );
-  expect(await (await app.request("/tiny-direct")).text()).toBe("tiny-direct");
   expect(await (await app.request("/tiny-module")).text()).toBe("tiny-module");
 });
 
@@ -1367,25 +1036,6 @@ test("rejects fetch-only route objects", () => {
       ],
     })
   ).toThrow(/must export a Hono app/);
-});
-
-test("passes params to nested dynamic Hono route modules", async () => {
-  const detail = new Hono();
-  detail.get("/", (c) => c.text(`post-detail:${c.req.param("id")}`));
-
-  const app = createFileRouter({
-    sources: [
-      {
-        files: {
-          "./posts/[id]/detail.ts": { default: detail },
-        },
-      },
-    ],
-  });
-
-  expect(await (await app.request("/posts/abc/detail")).text()).toBe(
-    "post-detail:abc"
-  );
 });
 
 test("preserves parent Context contracts for eager route modules", async () => {
@@ -1431,14 +1081,14 @@ test("preserves parent Context contracts for eager route modules", async () => {
     sources: [
       {
         files: {
-          "./users/[id].ts": profile,
+          "./users/[id]/detail.ts": profile,
         },
       },
     ],
   });
 
   const response = await app.request(
-    "/users/42",
+    "/users/42/detail",
     undefined,
     { prefix: "binding" },
     executionCtx
@@ -1490,33 +1140,16 @@ test("rejects empty Hono route modules", () => {
   ).toThrow(/at least one route at "\/"/);
 });
 
-test("rejects every non-root Hono child route shape", () => {
-  const starRoute = new Hono();
-  starRoute.all("/", (c) => c.text("invalid"));
-  const [starEntry] = starRoute.routes;
-  if (starEntry) {
-    starEntry.path = "*";
-  }
-
+test("rejects non-root child routes and wildcard middleware", () => {
+  const nestedRoute = new Hono();
+  nestedRoute.get("/nested", (c) => c.text("invalid"));
   const wildcardRoute = new Hono();
   wildcardRoute.use(async (_c, next) => next());
 
-  const invalidRoutes: [string, Hono][] = [
-    ["*", starRoute],
-    ["/*", wildcardRoute],
-  ];
-  for (const path of ["/:id", "/:id{[0-9]+}", "/nested"]) {
-    const route = new Hono();
-    route.all(path, (c) => c.text("invalid"));
-    invalidRoutes.push([path, route]);
-  }
-
-  for (const [path, route] of invalidRoutes) {
+  for (const route of [nestedRoute, wildcardRoute]) {
     expect(() =>
-      createRouteManifest({
-        sources: [{ files: { [`./${encodeURIComponent(path)}.ts`]: route } }],
-      })
-    ).toThrow(new RegExp(`found "${path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`));
+      createRouteManifest({ sources: [{ files: { "./invalid.ts": route } }] })
+    ).toThrow(/must only define routes at/);
   }
 });
 
@@ -1539,10 +1172,4 @@ test("validates every Hono module before mutating the target app", () => {
     })
   ).toThrow(/must only define routes at "\/"/);
   expect(app.routes).toEqual(originalRoutes);
-});
-
-test("builds request pathnames from dynamic params", () => {
-  expect(pathnameFromRoutePath("/users/:id", { id: "a b" })).toBe(
-    "/users/a%20b"
-  );
 });

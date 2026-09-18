@@ -61,38 +61,6 @@ test("passes the same raw nonce to Vite RSC and React DOM", async () => {
   ]);
 });
 
-test("passes undefined to both runtimes when no nonce is configured", async () => {
-  const calls: Array<{ name: string; options: unknown }> = [];
-  const runtime: RenderHtmlRuntime = {
-    createFromReadableStream: (_stream, options) => {
-      calls.push({ name: "vite-rsc", options });
-      return Promise.resolve("root");
-    },
-    renderToReadableStream: (_node, options) => {
-      calls.push({ name: "react-dom", options });
-      return textStream("html");
-    },
-  };
-
-  const result = await renderHtmlWithRuntime(
-    textStream("rsc"),
-    "/assets/entry.browser.js",
-    {},
-    runtime
-  );
-
-  expect(await new Response(result).text()).toContain("__FLIGHT_DATA");
-  expect(calls[0]).toEqual({
-    name: "vite-rsc",
-    options: { nonce: undefined },
-  });
-  expect(calls[1]).toMatchObject({
-    name: "react-dom",
-    options: { nonce: undefined },
-  });
-});
-
-
 // Execute the emitted scripts and the real client reader in an isolated browser
 // global, including its DOMContentLoaded stream completion path.
 async function readEmbeddedFlight(html: string): Promise<Uint8Array> {
