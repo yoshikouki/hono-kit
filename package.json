@@ -9,7 +9,7 @@
     "samples/*"
   ],
   "scripts": {
-    "lint": "ultracite check",
+    "lint": "bun ./scripts/lint.ts",
     "lint:fix": "ultracite fix",
     "build": "bun run build:packages && bun run build:samples",
     "build:packages": "bun run --filter '@yoshikouki/hono-*' build",
