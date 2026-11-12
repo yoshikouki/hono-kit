@@ -346,18 +346,20 @@ The default HTML renderer preserves binary Flight data with a corrected copy of
 ## React 19.3 and navigation
 
 The samples pin `react`, `react-dom`, and `react-server-dom-webpack` to
-`19.3.0`, with matching `@types/react` and `@types/react-dom`. Install all three
+`19.3.1`, with `@types/react` and `@types/react-dom` at `19.3.0`. Install all three
 runtime packages in the consuming application and upgrade them together:
 
 ```sh
-npm install --save-exact react@19.3.0 react-dom@19.3.0 react-server-dom-webpack@19.3.0
+npm install --save-exact react@19.3.1 react-dom@19.3.1 react-server-dom-webpack@19.3.1
 npm install --save-dev --save-exact @types/react@19.3.0 @types/react-dom@19.3.0
 ```
 
 Vite RSC uses an application's installed `react-server-dom-webpack` instead of
 its bundled Flight runtime; see [Vite's version selection guidance](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-rsc/README.md#using-different-react-versions).
-Rebuild HTML and browser assets together. The renderer's peer range still allows
-React 19; this update does not make 19.3 APIs mandatory for existing applications.
+Rebuild HTML and browser assets together. The renderer requires React and React DOM
+19.3.1 or later and `@vitejs/plugin-rsc >=0.5.38`, whose bundled Flight runtime
+is 19.3.1. Keep an application's installed Flight runtime on a patched version
+as well. These minimums align the runtime packages with the tested 19.3.1 release.
 
 The default browser entry hydrates the document and refreshes Flight during HMR.
 It does not intercept links, manage browser history, or perform client-side page
