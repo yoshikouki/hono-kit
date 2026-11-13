@@ -87,13 +87,25 @@ async function readEmbeddedFlight(html: string): Promise<Uint8Array> {
   ).replace("export let rscStream", "let rscStream");
   runInNewContext(`${client}\nglobalThis.result = rscStream;`, context);
   for (const match of html.matchAll(
-    /<script\b[^>]*>(?<code>[\s\S]*?)<\/script\b[^>]*>/gu
+    /<[sS][cC][rR][iI][pP][tT]\b[^>]*>(?<code>[\s\S]*?)<\/[sS][cC][rR][iI][pP][tT]\b[^>]*>/gu
   )) {
     runInNewContext(match.groups?.code ?? "", context);
   }
   onLoaded();
   return new Uint8Array(await new Response(context.result).arrayBuffer());
 }
+
+test.each([
+  ["SCRIPT", "SCRIPT"],
+  ["ScRiPt", "sCrIpT"],
+])("reads embedded Flight from <%s> and </%s>", async (opening, closing) => {
+  const payload = "</ſcript>";
+  const html = `<${opening}>(self.__FLIGHT_DATA||=[]).push(${JSON.stringify(payload)})</${closing}>`;
+
+  expect(await readEmbeddedFlight(html)).toEqual(
+    new TextEncoder().encode(payload)
+  );
+});
 
 test.each([
   ["</ScRiPt><!--", "</\\ScRiPt><\\!--"],
