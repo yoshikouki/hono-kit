@@ -1,18 +1,15 @@
 import { mkdir, readdir } from "node:fs/promises";
-import { distTagForVersion, localPackageSpec } from "./release-contract";
+import {
+  distTagForVersion,
+  localPackageSpec,
+  singleNpmPackResult,
+} from "./release-contract";
 import type { PackageManifest } from "./release-contract";
 
 interface PackedPackage {
   filename: string;
   name: string;
   tag: string;
-  version: string;
-}
-
-interface NpmPackResult {
-  filename: string;
-  files: { path: string }[];
-  name: string;
   version: string;
 }
 
@@ -46,13 +43,8 @@ const pack = async (directory: string) => {
     throw new Error(`npm pack failed for ${directory} (${exitCode})`);
   }
 
-  const [result] = JSON.parse(stdout) as NpmPackResult[];
-  if (!result) {
-    throw new Error(`npm pack returned no package for ${directory}`);
-  }
   console.log(stdout.trim());
-
-  return result;
+  return singleNpmPackResult(JSON.parse(stdout));
 };
 
 await mkdir(TARBALL_ROOT, { recursive: true });

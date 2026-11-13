@@ -67,20 +67,6 @@
           }
         }
       }
-    },
-    {
-      "includes": [
-        "samples/rsc-vite-basic/test/built-handler.test.ts",
-        "scripts/release-contract.ts"
-      ],
-      "linter": {
-        "rules": {
-          "style": {
-            // Preserve existing positional captures and their consumers.
-            "useNamedCaptureGroup": "off"
-          }
-        }
-      }
     }
   ],
   "files": {
