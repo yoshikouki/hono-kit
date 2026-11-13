@@ -79,3 +79,46 @@ export const exportTargets = (exports: unknown): string[] => {
 
   return Object.values(exports).flatMap(exportTargets).sort();
 };
+
+export interface NpmPackResult {
+  filename: string;
+  name: string;
+  version: string;
+}
+
+const isNpmPackResult = (value: unknown): value is NpmPackResult => {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const { filename, name, version } = value as Record<string, unknown>;
+  return (
+    typeof filename === "string" &&
+    typeof name === "string" &&
+    typeof version === "string"
+  );
+};
+
+// npm 11 and earlier print an array of results; npm 12 prints an object keyed
+// by package name. Both shapes must describe exactly one packed package.
+export const singleNpmPackResult = (output: unknown): NpmPackResult => {
+  if (!output || typeof output !== "object") {
+    throw new Error("npm pack --json returned an unexpected shape");
+  }
+
+  const results = Array.isArray(output) ? output : Object.values(output);
+  if (results.length !== 1) {
+    throw new Error(
+      `npm pack --json returned ${results.length} packages; expected exactly one`
+    );
+  }
+
+  const [result] = results;
+  if (!isNpmPackResult(result)) {
+    throw new Error(
+      "npm pack --json returned a package without name, version, and filename"
+    );
+  }
+
+  return result;
+};
