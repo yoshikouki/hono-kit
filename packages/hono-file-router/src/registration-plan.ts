@@ -40,8 +40,7 @@ export type RegistrationPlanEntry<E extends Env> =
   | GeneratedRegistration<E>
   | HonoRegistration<E>;
 
-export type RegistrationPlan<E extends Env> =
-  readonly RegistrationPlanEntry<E>[];
+export type RegistrationPlan<E extends Env> = readonly RegistrationPlanEntry<E>[];
 
 interface CollisionRegistrationBase {
   path: string;
@@ -116,17 +115,9 @@ function assertUniqueRouteIds<TModule, TData>(
   return byId;
 }
 
-function assertSupportedMethod(
-  method: unknown,
-  path: string
-): asserts method is HttpMethod {
-  if (
-    typeof method !== "string" ||
-    !SUPPORTED_METHODS.has(method as HttpMethod)
-  ) {
-    throw new Error(
-      `Unsupported generated route method "${String(method)}" for "${path}".`
-    );
+function assertSupportedMethod(method: unknown, path: string): asserts method is HttpMethod {
+  if (typeof method !== "string" || !SUPPORTED_METHODS.has(method as HttpMethod)) {
+    throw new Error(`Unsupported generated route method "${String(method)}" for "${path}".`);
   }
 }
 
@@ -136,12 +127,16 @@ function firstCollision(
 ): CollisionRegistration | undefined {
   if (candidate.kind === "hono") {
     return (
-      bucket.opaque ?? bucket.allMethods ?? bucket.methods.values().next().value
+      bucket.opaque ??
+      bucket.allMethods ??
+      bucket.methods.values().next().value
     );
   }
   if (candidate.method === "ALL") {
     return (
-      bucket.opaque ?? bucket.allMethods ?? bucket.methods.values().next().value
+      bucket.opaque ??
+      bucket.allMethods ??
+      bucket.methods.values().next().value
     );
   }
   return (
@@ -248,12 +243,14 @@ export function compileRegistrationPlan<
     });
   }
 
-  const honoEntries: HonoRegistration<E>[] = manifest.handlers.map((route) => ({
-    app: validatedHonoApp<E>(route.module, route.file),
-    kind: "hono",
-    path: route.path,
-    source: route.file,
-  }));
+  const honoEntries: HonoRegistration<E>[] = manifest.handlers.map(
+    (route) => ({
+      app: validatedHonoApp<E>(route.module, route.file),
+      kind: "hono",
+      path: route.path,
+      source: route.file,
+    })
+  );
 
   const entries = [...handlerEntries, ...honoEntries];
   assertNoRegistrationCollisions(entries);

@@ -1,16 +1,16 @@
 import type { RoutePathConvention, RoutePathResult } from "./types";
 
-const RE_DYNAMIC_SEGMENT = /^\[([A-Za-z_$][\w$]*)\]$/u;
-const RE_CATCH_ALL_SEGMENT = /^\[\.{3}([A-Za-z_$][\w$]*)\]$/u;
-const RE_PLAIN_DYNAMIC_PATH_SEGMENT = /^:([A-Za-z_$][\w$]*)$/u;
-const RE_CATCH_ALL_PATH_SEGMENT = /^:([A-Za-z_$][\w$]*)\{\.\+\}$/u;
-const RE_STATIC_PATH_SEGMENT = /^[^\\:*?{}#]+$/u;
-const RE_URL_DOT_SEGMENT = /^(?:\.|%2e){1,2}$/iu;
-const RE_PERCENT_ENCODED_RUN = /(?:%[0-9A-Fa-f]{2})+/gu;
-const RE_GROUP_SEGMENT = /^\(.+\)$/u;
-const RE_LEADING_DOT_SLASH = /^\.\/+/u;
-const RE_ROUTE_EXTENSION = /\.[^.]+$/u;
-const RE_TRAILING_INDEX = /(^|\/)index$/u;
+const RE_DYNAMIC_SEGMENT = /^\[([A-Za-z_$][\w$]*)\]$/;
+const RE_CATCH_ALL_SEGMENT = /^\[\.{3}([A-Za-z_$][\w$]*)\]$/;
+const RE_PLAIN_DYNAMIC_PATH_SEGMENT = /^:([A-Za-z_$][\w$]*)$/;
+const RE_CATCH_ALL_PATH_SEGMENT = /^:([A-Za-z_$][\w$]*)\{\.\+\}$/;
+const RE_STATIC_PATH_SEGMENT = /^[^\\:*?{}#]+$/;
+const RE_URL_DOT_SEGMENT = /^(?:\.|%2e){1,2}$/i;
+const RE_PERCENT_ENCODED_RUN = /(?:%[0-9A-Fa-f]{2})+/g;
+const RE_GROUP_SEGMENT = /^\(.+\)$/;
+const RE_LEADING_DOT_SLASH = /^\.\/+/;
+const RE_ROUTE_EXTENSION = /\.[^.]+$/;
+const RE_TRAILING_INDEX = /(^|\/)index$/;
 
 interface RoutePathEntry {
   path: string;
@@ -30,11 +30,11 @@ const SEGMENT_ORDER: Record<RouteSegmentKind, number> = {
 };
 
 export function trimSlashes(value: string): string {
-  return value.replace(/^\/+|\/+$/gu, "");
+  return value.replace(/^\/+|\/+$/g, "");
 }
 
 export function normalizePath(value: string): string {
-  return value.replaceAll("\\", "/").replace(/\/+/gu, "/");
+  return value.replaceAll("\\", "/").replace(/\/+/g, "/");
 }
 
 export function dirname(path: string): string {
@@ -84,10 +84,7 @@ function segmentToRoutePath(segment: string, file: string): string {
   return segment;
 }
 
-function assertUniqueDynamicSegmentNames(
-  segments: string[],
-  file: string
-): void {
+function assertUniqueDynamicSegmentNames(segments: string[], file: string): void {
   const seen = new Set<string>();
   for (const segment of segments) {
     const paramName = dynamicSegmentName(segment, file);
@@ -183,7 +180,7 @@ function parseRoutePath(path: string): ParsedRouteSegment[] {
     return [];
   }
   if (!path.startsWith("/")) {
-    throw invalidRoutePath(path, 'Paths must start with "/".');
+    throw invalidRoutePath(path, "Paths must start with \"/\".");
   }
   if (path.endsWith("/")) {
     throw invalidRoutePath(path, "Trailing slashes are not canonical.");

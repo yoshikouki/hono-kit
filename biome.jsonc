@@ -70,28 +70,36 @@
     },
     {
       "includes": [
-        "packages/hono-file-router/scripts/typecheck-readme.ts",
-        "packages/hono-file-router/src/route-path.ts",
-        "packages/hono-rsc-renderer/src/inject-rsc-payload.ts",
-        "packages/hono-rsc-renderer/test/render-html.test.ts",
         "samples/rsc-vite-basic/test/built-handler.test.ts",
         "scripts/release-contract.ts"
       ],
       "linter": {
         "rules": {
           "style": {
-            // Preserve existing positional capture groups and their consumers.
+            // Preserve existing positional captures and their consumers.
             "useNamedCaptureGroup": "off"
           }
         }
       }
     },
     {
-      "includes": ["packages/hono-file-router/test/index.test.ts"],
+      // パッケージの変更はリリースになるため、次のリリースで適用する（yoshikouki/agent#78）
+      "includes": ["packages/**"],
+      "formatter": {
+        "enabled": false
+      },
+      "json": {
+        "formatter": {
+          "enabled": false
+        }
+      },
       "linter": {
         "rules": {
+          "style": {
+            "useUnicodeRegex": "off",
+            "useNamedCaptureGroup": "off"
+          },
           "suspicious": {
-            // Preserve existing conditional assertions in router tests.
             "noConditionalExpect": "off"
           }
         }

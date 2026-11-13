@@ -4,7 +4,10 @@ import {
 } from "@vitejs/plugin-rsc/ssr";
 import type { ReactNode } from "react";
 import { renderToReadableStream } from "react-dom/server.edge";
-import { type RenderHtmlOptions, renderHtmlWithRuntime } from "./render-html";
+import {
+  type RenderHtmlOptions,
+  renderHtmlWithRuntime,
+} from "./render-html";
 
 export type { RenderHtmlOptions } from "./render-html";
 

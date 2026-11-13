@@ -1,7 +1,4 @@
-import {
-  createFromFetch,
-  createFromReadableStream,
-} from "@vitejs/plugin-rsc/browser";
+import { createFromFetch, createFromReadableStream } from "@vitejs/plugin-rsc/browser";
 import type { ReactNode } from "react";
 import { hydrateRoot } from "react-dom/client";
 import { rscStream } from "rsc-html-stream/client";

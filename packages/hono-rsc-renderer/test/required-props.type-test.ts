@@ -9,10 +9,7 @@ declare module "@yoshikouki/hono-rsc-renderer" {
 
 const app = new Hono();
 
-app.use(
-  "*",
-  rscRenderer(({ children, title }) => `${title}:${children}`)
-);
+app.use("*", rscRenderer(({ children, title }) => `${title}:${children}`));
 app.get("/valid", (c) => c.render("content", { title: "Required" }));
 app.get("/missing", (c) =>
   // @ts-expect-error Required augmented render props cannot be omitted.

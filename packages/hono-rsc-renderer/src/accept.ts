@@ -1,5 +1,5 @@
-const TOKEN_PATTERN = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/u;
-const QVALUE_PATTERN = /^(?:0(?:\.\d{0,3})?|1(?:\.0{0,3})?)$/u;
+const TOKEN_PATTERN = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
+const QVALUE_PATTERN = /^(?:0(?:\.\d{0,3})?|1(?:\.0{0,3})?)$/;
 
 interface MediaType {
   parameters: ReadonlyMap<string, string>;
@@ -94,7 +94,8 @@ function parseMediaRange(value: string): MediaRange | undefined {
   const type = mediaType.slice(0, slashIndex);
   const subtype = mediaType.slice(slashIndex + 1);
   const validWildcard =
-    (type === "*" && subtype === "*") || (type !== "*" && subtype === "*");
+    (type === "*" && subtype === "*") ||
+    (type !== "*" && subtype === "*");
   const validExactType =
     type !== "*" && subtype !== "*" && TOKEN_PATTERN.test(subtype);
   if (!(TOKEN_PATTERN.test(type) && (validWildcard || validExactType))) {
@@ -135,11 +136,7 @@ function parseMediaRange(value: string): MediaRange | undefined {
   return { parameters, quality, subtype, type };
 }
 
-function parameterValuesMatch(
-  name: string,
-  left: string,
-  right: string
-): boolean {
+function parameterValuesMatch(name: string, left: string, right: string): boolean {
   if (name === "charset") {
     return left.toLowerCase() === right.toLowerCase();
   }

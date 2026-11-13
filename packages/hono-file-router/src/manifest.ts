@@ -47,13 +47,21 @@ function routeId(prefix: string, file: string): string {
   return `${prefix}:${file}`;
 }
 
-function isRendererSource<E extends Env, TModule, TData>(
+function isRendererSource<
+  E extends Env,
+  TModule,
+  TData,
+>(
   source: RouteSource<E, TModule, TData>
 ): source is RendererSource<E, TModule, TData> {
   return "renderer" in source;
 }
 
-function isIgnoredRouteFile<E extends Env, TModule, TData>(
+function isIgnoredRouteFile<
+  E extends Env,
+  TModule,
+  TData,
+>(
   file: string,
   source: RouteSource<E, TModule, TData>,
   convention: NonNullable<RouteManifestConfig<E>["pathConvention"]>
@@ -61,7 +69,9 @@ function isIgnoredRouteFile<E extends Env, TModule, TData>(
   return Boolean(source.ignore?.(file) || convention.ignore?.(file));
 }
 
-export function createRouteManifest<E extends Env = Env>(
+export function createRouteManifest<
+  E extends Env = Env,
+>(
   config: RouteManifestConfig<E>
 ): RouteManifest<E> {
   const sources = Array.isArray(config.sources)

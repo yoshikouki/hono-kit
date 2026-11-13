@@ -30,9 +30,8 @@ interface AppEnv {
 }
 
 type Equal<Left, Right> =
-  (<Value>() => Value extends Left ? 1 : 2) extends <
-    Value,
-  >() => Value extends Right ? 1 : 2
+  (<Value>() => Value extends Left ? 1 : 2) extends <Value>() =>
+    Value extends Right ? 1 : 2
     ? true
     : false;
 
@@ -67,7 +66,9 @@ const renderer: FileRouteRenderer<AppEnv> = {
     const userId: string = c.var.userId;
     const prefix: string = c.env.prefix;
     const routeParam: string | undefined = c.req.param("id");
-    return c.render(`${userId}:${prefix}:${routeParam}:${renderedRoute.path}`);
+    return c.render(
+      `${userId}:${prefix}:${routeParam}:${renderedRoute.path}`
+    );
   },
 };
 
@@ -130,10 +131,8 @@ createFileRouter<AppEnv>({
   ],
 });
 
-createFileRouter({
-  // @ts-expect-error Hono route-source modules must be eager.
-  sources: [{ files: { "./lazy.ts": async () => typedRoute } }],
-});
+// @ts-expect-error Hono route-source modules must be eager.
+createFileRouter({ sources: [{ files: { "./lazy.ts": async () => typedRoute } }] });
 createFileRouter({
   // @ts-expect-error Hono-like fetch objects are not Hono route modules.
   sources: [{ files: { "./like.ts": { fetch: () => new Response() } } }],

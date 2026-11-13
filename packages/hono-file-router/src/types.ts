@@ -104,7 +104,9 @@ export type RouteSource<
   E extends Env = Env,
   TModule = unknown,
   TData = unknown,
-> = RendererSource<E, TModule, TData> | HonoRoutesSource<E>;
+> =
+  | RendererSource<E, TModule, TData>
+  | HonoRoutesSource<E>;
 
 export type AnyRouteSource<E extends Env = Env> = RouteSource<
   E,

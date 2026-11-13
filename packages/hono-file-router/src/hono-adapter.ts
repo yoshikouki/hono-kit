@@ -33,7 +33,11 @@ export function mountFileRoutes<E extends Env = Env>(
 export function createFileRouter<E extends Env = Env>(
   options: CreateFileRouterOptions<E>
 ): Hono<E> {
-  const { manifest: _manifest, sources: _sources, ...honoOptions } = options;
+  const {
+    manifest: _manifest,
+    sources: _sources,
+    ...honoOptions
+  } = options;
   const app = new Hono<E>(honoOptions);
   return mountFileRoutes(app, options);
 }

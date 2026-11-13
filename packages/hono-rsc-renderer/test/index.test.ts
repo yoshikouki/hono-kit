@@ -155,7 +155,8 @@ test("keeps custom negotiation and Vary headers in one contract", async () => {
     "*",
     rscRenderer(undefined, {
       negotiation: {
-        negotiate: (c) => (c.req.header("X-Flight") === "1" ? "rsc" : "html"),
+        negotiate: (c) =>
+          c.req.header("X-Flight") === "1" ? "rsc" : "html",
         varyHeaders: ["X-Flight", "x-flight", "Accept"],
       },
       renderHtml: async (rscStream) => rscStream,
