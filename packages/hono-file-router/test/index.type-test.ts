@@ -130,8 +130,8 @@ createFileRouter<AppEnv>({
   ],
 });
 
-// @ts-expect-error Hono route-source modules must be eager.
 createFileRouter({
+  // @ts-expect-error Hono route-source modules must be eager.
   sources: [{ files: { "./lazy.ts": async () => typedRoute } }],
 });
 createFileRouter({
