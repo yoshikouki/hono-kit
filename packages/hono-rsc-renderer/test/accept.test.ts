@@ -20,19 +20,13 @@ test("uses the most specific matching range to determine quality", () => {
     isMediaTypeAcceptable("*/*;q=1, text/*;q=0.5, text/html;q=0", HTML)
   ).toBeFalse();
   expect(
-    isMediaTypeAcceptable(
-      "*/*;q=0, text/*;q=0.5, text/x-component;q=1",
-      RSC
-    )
+    isMediaTypeAcceptable("*/*;q=0, text/*;q=0.5, text/x-component;q=1", RSC)
   ).toBeTrue();
 });
 
 test("matches representation parameters and processes q in any position", () => {
   expect(
-    isMediaTypeAcceptable(
-      'TEXT/X-COMPONENT;Q=0.5;CHARSET="UTF-8"',
-      RSC
-    )
+    isMediaTypeAcceptable('TEXT/X-COMPONENT;Q=0.5;CHARSET="UTF-8"', RSC)
   ).toBeTrue();
   expect(
     isMediaTypeAcceptable("text/x-component;charset=shift_jis", RSC)

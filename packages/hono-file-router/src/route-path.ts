@@ -84,7 +84,10 @@ function segmentToRoutePath(segment: string, file: string): string {
   return segment;
 }
 
-function assertUniqueDynamicSegmentNames(segments: string[], file: string): void {
+function assertUniqueDynamicSegmentNames(
+  segments: string[],
+  file: string
+): void {
   const seen = new Set<string>();
   for (const segment of segments) {
     const paramName = dynamicSegmentName(segment, file);
@@ -180,7 +183,7 @@ function parseRoutePath(path: string): ParsedRouteSegment[] {
     return [];
   }
   if (!path.startsWith("/")) {
-    throw invalidRoutePath(path, "Paths must start with \"/\".");
+    throw invalidRoutePath(path, 'Paths must start with "/".');
   }
   if (path.endsWith("/")) {
     throw invalidRoutePath(path, "Trailing slashes are not canonical.");

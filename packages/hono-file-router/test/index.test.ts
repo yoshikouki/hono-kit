@@ -104,12 +104,7 @@ test("rejects non-canonical and application-owned Hono path patterns", () => {
 });
 
 test("rejects URL dot segments in literal, encoded, and mixed forms", () => {
-  const rejected = [
-    "/.",
-    "/..",
-    "/a/%2E/b",
-    "/.%2e/b",
-  ];
+  const rejected = ["/.", "/..", "/a/%2E/b", "/.%2e/b"];
 
   for (const path of rejected) {
     expect(() => assertSupportedRoutePath(path), path).toThrow(
@@ -153,7 +148,10 @@ test("supports custom route path conventions", () => {
       name: "upper",
       toPath(file) {
         return {
-          path: `/${file.replace(/^\.\//, "").replace(/\.[^.]+$/, "").toUpperCase()}`,
+          path: `/${file
+            .replace(/^\.\//, "")
+            .replace(/\.[^.]+$/, "")
+            .toUpperCase()}`,
         };
       },
     },
@@ -588,14 +586,17 @@ test("orders registrations independently of source order and route category", ()
 
   for (const reversed of [false, true]) {
     const plan = compileRegistrationPlan({
-      generatedRoutes: reversed ? generatedRoutes.toReversed() : generatedRoutes,
+      generatedRoutes: reversed
+        ? generatedRoutes.toReversed()
+        : generatedRoutes,
       handlers: reversed ? handlers.toReversed() : handlers,
       renderers: [textRenderer()],
       routes: reversed ? routes.toReversed() : routes,
     });
     expect(
-      plan.map((entry) =>
-        `${entry.kind}:${entry.kind === "hono" ? "OPAQUE" : entry.method}:${entry.path}`
+      plan.map(
+        (entry) =>
+          `${entry.kind}:${entry.kind === "hono" ? "OPAQUE" : entry.method}:${entry.path}`
       )
     ).toEqual(expected);
   }
@@ -659,9 +660,7 @@ test("allows one path across distinct concrete generated methods", async () => {
   expect(
     await (await app.request("/resource", { method: "POST" })).text()
   ).toBe("generated:POST");
-  expect(await (await app.request("/events")).text()).toBe(
-    "generated:ALL:GET"
-  );
+  expect(await (await app.request("/events")).text()).toBe("generated:ALL:GET");
   expect(
     await (await app.request("/events", { method: "DELETE" })).text()
   ).toBe("generated:ALL:DELETE");
@@ -847,7 +846,12 @@ test("preflights every configuration error before mutating the target app", () =
       path,
       handWrittenManifest({
         routes: [
-          { file: "./invalid.tsx", id: "text:invalid", path, rendererName: "text" },
+          {
+            file: "./invalid.tsx",
+            id: "text:invalid",
+            path,
+            rendererName: "text",
+          },
         ],
       }),
     ]);
@@ -939,11 +943,7 @@ test("passes the request Hono context to primary and generated renderers", async
     middlewareContexts.get("/users/123")
   );
 
-  const generated = await app.request(
-    "/__data/users/456",
-    undefined,
-    bindings
-  );
+  const generated = await app.request("/__data/users/456", undefined, bindings);
   expect(await generated.text()).toBe(
     "rendered:request:/__data/users/456:env:456:/users/:id"
   );
@@ -992,9 +992,9 @@ test("accepts eager root-only Hono modules with methods and handler chains", asy
   const getResponse = await app.request("/api");
   expect(await getResponse.text()).toBe("handled:get");
   expect(getResponse.headers.get("X-Route-Middleware")).toBe("true");
-  expect(
-    await (await app.request("/api", { method: "POST" })).text()
-  ).toBe("handled:post");
+  expect(await (await app.request("/api", { method: "POST" })).text()).toBe(
+    "handled:post"
+  );
   expect(middlewareCalls).toBe(2);
   expect(await (await app.request("/direct")).text()).toBe("all:GET");
 });
@@ -1065,9 +1065,7 @@ test("preserves parent Context contracts for eager route modules", async () => {
   profile.get("/", (c) => {
     childContext = c;
     c.executionCtx.waitUntil(Promise.resolve());
-    return c.render(
-      `${c.var.greeting}:${c.env.prefix}:${c.req.param("id")}`
-    );
+    return c.render(`${c.var.greeting}:${c.env.prefix}:${c.req.param("id")}`);
   });
 
   const app = new Hono<TestEnv>();
