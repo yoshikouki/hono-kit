@@ -87,13 +87,38 @@ async function readEmbeddedFlight(html: string): Promise<Uint8Array> {
   ).replace("export let rscStream", "let rscStream");
   runInNewContext(`${client}\nglobalThis.result = rscStream;`, context);
   for (const match of html.matchAll(
-    /<script\b[^>]*>([\s\S]*?)<\/script\b[^>]*>/gi
+    /<script\b[^>]*>(?<code>[\s\S]*?)<\/script\b[^>]*>/gu
   )) {
-    runInNewContext(match[1] ?? "", context);
+    runInNewContext(match.groups?.code ?? "", context);
   }
   onLoaded();
   return new Uint8Array(await new Response(context.result).arrayBuffer());
 }
+
+test.each([
+  ["</ScRiPt><!--", "</\\ScRiPt><\\!--"],
+  ["</ſcript>", "</ſcript>"],
+])(
+  "escapes ASCII script tags while preserving %s",
+  async (payload, escaped) => {
+    const result = await renderHtmlWithRuntime(
+      textStream(payload),
+      "/entry.js",
+      {},
+      {
+        createFromReadableStream: async () => "root",
+        renderToReadableStream: () =>
+          textStream("<html><body>root</body></html>"),
+      }
+    );
+    const html = await new Response(result).text();
+
+    expect(html).toContain(`.push("${escaped}")`);
+    expect(await readEmbeddedFlight(html)).toEqual(
+      new TextEncoder().encode(payload)
+    );
+  }
+);
 
 const binary = new Uint8Array(2049).fill(0x61);
 binary[2048] = 0xe2;

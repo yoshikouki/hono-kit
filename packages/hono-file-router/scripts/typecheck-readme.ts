@@ -7,8 +7,8 @@ const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const readmePath = join(packageRoot, "README.md");
 const readme = await readFile(readmePath, "utf8");
 const examples = [
-  ...readme.matchAll(/```(?:ts|typescript)\n([\s\S]*?)\n```/g),
-].map((match) => match[1] ?? "");
+  ...readme.matchAll(/```(?:ts|typescript)\n(?<code>[\s\S]*?)\n```/gu),
+].map((match) => match.groups?.code ?? "");
 
 if (examples.length === 0) {
   throw new Error("README.md contains no TypeScript examples to verify.");

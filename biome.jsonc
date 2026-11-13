@@ -81,29 +81,6 @@
           }
         }
       }
-    },
-    {
-      // パッケージの変更はリリースになるため、次のリリースで適用する（yoshikouki/agent#78）
-      "includes": ["packages/**"],
-      "formatter": {
-        "enabled": false
-      },
-      "json": {
-        "formatter": {
-          "enabled": false
-        }
-      },
-      "linter": {
-        "rules": {
-          "style": {
-            "useUnicodeRegex": "off",
-            "useNamedCaptureGroup": "off"
-          },
-          "suspicious": {
-            "noConditionalExpect": "off"
-          }
-        }
-      }
     }
   ],
   "files": {

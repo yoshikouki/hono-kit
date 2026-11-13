@@ -143,5 +143,8 @@ function writeChunk(
 // Avoid replacing </script with <\/script as it would break the following valid JS: 0</script/ (i.e. regexp literal).
 // Instead, escape the s character.
 function escapeScript(script: string) {
-  return script.replace(/<!--/g, "<\\!--").replace(/<\/(script)/gi, "</\\$1");
+  // HTML tag names use ASCII case matching; /iu would also match long s (ſ).
+  return script
+    .replace(/<!--/gu, "<\\!--")
+    .replace(/<\/(?<tag>[sS][cC][rR][iI][pP][tT])/gu, "</\\$<tag>");
 }

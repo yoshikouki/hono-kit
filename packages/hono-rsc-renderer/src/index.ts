@@ -83,7 +83,7 @@ const RSC_CONTENT_TYPE = "text/x-component;charset=utf-8";
 const RSC_CACHE_CONTROL = "private, no-store";
 const NONCE_HTML_CACHE_CONTROL = "private, no-store";
 const DEFAULT_VARY_HEADERS = ["RSC", "Accept"] as const;
-const HTTP_FIELD_NAME_PATTERN = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
+const HTTP_FIELD_NAME_PATTERN = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/u;
 
 const DEFAULT_LAYOUT: RscLayout = ({ children }) =>
   createElement(Fragment, null, children);
