@@ -7,7 +7,7 @@ async function loadBuiltHandler() {
 
 function responseNonce(response: Response): string {
   const csp = response.headers.get("Content-Security-Policy") ?? "";
-  const nonce = csp.match(/'nonce-([^']+)'/)?.[1];
+  const nonce = csp.match(/'nonce-([^']+)'/u)?.[1];
   if (!nonce) {
     throw new Error("Expected a CSP nonce");
   }
@@ -15,7 +15,7 @@ function responseNonce(response: Response): string {
 }
 
 function scriptTags(html: string): string[] {
-  return html.match(/<script\b[^>]*>/gi) ?? [];
+  return html.match(/<script\b[^>]*>/giu) ?? [];
 }
 
 test("built HTML gives every React and Vite owned script the request CSP nonce", async () => {
@@ -33,7 +33,7 @@ test("built HTML gives every React and Vite owned script the request CSP nonce",
   expect(firstHtml).toContain("RSC Basic");
   expect(firstHtml).toContain("React 19.3 count");
   expect(firstHtml).not.toContain("data-msg=");
-  expect(firstHtml).toMatch(/<script\b[^>]*\bid=/i);
+  expect(firstHtml).toMatch(/<script\b[^>]*\bid=/iu);
   const firstNonce = responseNonce(firstResponse);
   const secondNonce = responseNonce(secondResponse);
 

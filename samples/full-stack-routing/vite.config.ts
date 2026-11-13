@@ -5,10 +5,7 @@ import remarkMdxFrontmatter from "remark-mdx-frontmatter";
 import { defineConfig } from "vite";
 
 const mdxPlugin = mdx({
-  remarkPlugins: [
-    remarkFrontmatter,
-    [remarkMdxFrontmatter, { default: {} }],
-  ],
+  remarkPlugins: [remarkFrontmatter, [remarkMdxFrontmatter, { default: {} }]],
 });
 
 export default defineConfig({

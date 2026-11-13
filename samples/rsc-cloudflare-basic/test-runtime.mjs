@@ -17,17 +17,26 @@ const getServerUrl = (server) => {
 
 const assertResponse = async (baseUrl, mode) => {
   const htmlResponse = await fetch(baseUrl);
-  assert(htmlResponse.status === 200, `${mode} HTML returned ${htmlResponse.status}`);
+  assert(
+    htmlResponse.status === 200,
+    `${mode} HTML returned ${htmlResponse.status}`
+  );
   assert(
     htmlResponse.headers.get("Content-Type")?.includes("text/html"),
     `${mode} HTML returned an unexpected Content-Type`
   );
   const html = await htmlResponse.text();
-  assert(html.includes("RSC on Cloudflare Workers"), `${mode} HTML omitted the layout`);
+  assert(
+    html.includes("RSC on Cloudflare Workers"),
+    `${mode} HTML omitted the layout`
+  );
   assert(html.includes("Hello from Hono RSC"), `${mode} HTML omitted the page`);
 
   const flightResponse = await fetch(baseUrl, { headers: { RSC: "1" } });
-  assert(flightResponse.status === 200, `${mode} Flight returned ${flightResponse.status}`);
+  assert(
+    flightResponse.status === 200,
+    `${mode} Flight returned ${flightResponse.status}`
+  );
   assert(
     flightResponse.headers.get("Content-Type")?.includes("text/x-component"),
     `${mode} Flight returned an unexpected Content-Type`
@@ -43,7 +52,10 @@ const assertResponse = async (baseUrl, mode) => {
 };
 
 const testDev = async () => {
-  const server = await createServer({ root, server: { host: "127.0.0.1", port: 0 } });
+  const server = await createServer({
+    root,
+    server: { host: "127.0.0.1", port: 0 },
+  });
   try {
     await server.listen();
     await assertResponse(getServerUrl(server), "dev");
@@ -69,7 +81,10 @@ const run = (script, label) =>
   });
 
 const testPreview = async () => {
-  const server = await preview({ root, preview: { host: "127.0.0.1", port: 0 } });
+  const server = await preview({
+    root,
+    preview: { host: "127.0.0.1", port: 0 },
+  });
   try {
     await assertResponse(getServerUrl(server), "preview");
   } finally {

@@ -10,10 +10,10 @@ export interface PackageManifest {
   version: string;
 }
 
-const PACKAGE_PATH = /^packages\/([^/]+)\//;
+const PACKAGE_PATH = /^packages\/([^/]+)\//u;
 const VERSION =
-  /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-(?<prerelease>[0-9A-Za-z-]+)(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
-const DIST_TAG = /^[a-z][a-z0-9-]*$/;
+  /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-(?<prerelease>[0-9A-Za-z-]+)(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/u;
+const DIST_TAG = /^[a-z][a-z0-9-]*$/u;
 
 export const changedPackageDirectories = (paths: Iterable<string>) => {
   const directories = new Set<string>();

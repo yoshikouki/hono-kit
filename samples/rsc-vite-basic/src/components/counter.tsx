@@ -1,7 +1,13 @@
 // biome-ignore-all lint/performance/noJsxPropsBind: DOM event handlers in this sample do not need stable references.
 "use client";
 
-import { createContext, startTransition, useContext, useState, ViewTransition } from "react";
+import {
+  createContext,
+  startTransition,
+  useContext,
+  useState,
+  ViewTransition,
+} from "react";
 
 export const CounterLabel = createContext("Count");
 
@@ -13,7 +19,9 @@ export function Counter() {
     <ViewTransition>
       <button
         type="button"
-        onClick={() => startTransition(() => setCount((current) => current + 1))}
+        onClick={() =>
+          startTransition(() => setCount((current) => current + 1))
+        }
       >
         {label}: {count}
       </button>
