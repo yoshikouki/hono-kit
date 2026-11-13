@@ -2,20 +2,21 @@
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
   "extends": [
     "ultracite/biome/core",
+    "ultracite/biome/react",
     "ultracite/biome/vitest"
   ],
   "formatter": {
-    "enabled": false
+    "enabled": true
   },
   "json": {
     "formatter": {
-      "enabled": false
+      "enabled": true
     }
   },
   "assist": {
-    "enabled": false,
     "actions": {
       "source": {
+        // Only class/className sorting (linter: useTailwindSortedClasses) is enabled.
         "organizeImports": "off",
         "useSortedAttributes": "off",
         "useSortedKeys": "off",
@@ -24,7 +25,10 @@
         "useSortedProperties": "off",
         "useSortedTypeFields": "off",
         "useSortedSelectionSet": "off",
-        "useSortedPackageJson": "off"
+        "useSortedPackageJson": "off",
+        "useGraphqlSortedDefinitions": "off",
+        "useGraphqlSortedVariables": "off",
+        "useGraphqlSortedArguments": "off"
       }
     }
   },
@@ -35,9 +39,6 @@
       },
       "performance": {
         "noBarrelFile": "off"
-      },
-      "nursery": {
-        "useSortedClasses": "off"
       },
       "style": {
         "useConsistentArrayType": "off",
@@ -52,19 +53,13 @@
   },
   "overrides": [
     {
-      "includes": [
-        "scripts/**/*.ts"
-      ],
+      "includes": ["scripts/**/*.ts"],
       "javascript": {
-        "globals": [
-          "Bun"
-        ]
+        "globals": ["Bun"]
       }
     },
     {
-      "includes": [
-        "**/test/**/*.ts"
-      ],
+      "includes": ["**/test/**/*.ts"],
       "linter": {
         "rules": {
           "performance": {
@@ -75,12 +70,41 @@
     },
     {
       "includes": [
-        "**/package.json",
-        ".github/**/*.json"
+        "packages/hono-file-router/scripts/typecheck-readme.ts",
+        "packages/hono-file-router/src/route-path.ts",
+        "packages/hono-rsc-renderer/src/inject-rsc-payload.ts",
+        "packages/hono-rsc-renderer/test/render-html.test.ts",
+        "samples/rsc-vite-basic/test/built-handler.test.ts",
+        "scripts/release-contract.ts"
       ],
-      "assist": {
-        "enabled": false
+      "linter": {
+        "rules": {
+          "style": {
+            // Preserve existing positional capture groups and their consumers.
+            "useNamedCaptureGroup": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["packages/hono-file-router/test/index.test.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            // Preserve existing conditional assertions in router tests.
+            "noConditionalExpect": "off"
+          }
+        }
       }
     }
-  ]
+  ],
+  "files": {
+    "includes": [
+      "!!**/worker-configuration.d.ts",
+      "!!**/migrations/meta",
+      "!!**/bun.lock",
+      "!!**/dist",
+      "!!**/.release"
+    ]
+  }
 }

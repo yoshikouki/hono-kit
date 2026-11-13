@@ -40,9 +40,7 @@ app.get(
 
 app.get("/", (c) => c.render(<HomePage />));
 
-app.get("/users/:id", (c) =>
-  c.render(<UserPage id={c.req.param("id")} />)
-);
+app.get("/users/:id", (c) => c.render(<UserPage id={c.req.param("id")} />));
 
 export default function handler(
   request: Request

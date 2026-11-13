@@ -39,7 +39,12 @@ export async function renderHtmlWithRuntime(
     onError: options.onError ?? ((error) => console.error(error)),
     signal: options.signal,
   });
-  return html.pipeThrough(injectRSCPayload(forPayload, {
-    nonce: options.nonce?.replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;"),
-  }));
+  return html.pipeThrough(
+    injectRSCPayload(forPayload, {
+      nonce: options.nonce
+        ?.replaceAll("&", "&amp;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("<", "&lt;"),
+    })
+  );
 }

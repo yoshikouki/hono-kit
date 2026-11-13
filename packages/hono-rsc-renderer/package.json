@@ -5,7 +5,9 @@
   "type": "module",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "rm -rf ./dist && bun build ./src/index.ts ./src/entry.ssr.ts ./src/entry.browser.ts --outdir ./dist --target browser --format esm --external hono --external react --external react-dom --external @vitejs/plugin-rsc --external rsc-html-stream && tsc -p tsconfig.json --emitDeclarationOnly && bun run typecheck:dist",
     "typecheck": "tsc -p tsconfig.type-tests.json && tsc -p tsconfig.type-tests.no-augmentation.json && tsc -p tsconfig.type-tests.required-props.json",

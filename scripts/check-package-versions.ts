@@ -1,7 +1,10 @@
-import { changedPackageDirectories, packageVersionChanged } from "./release-contract";
+import {
+  changedPackageDirectories,
+  packageVersionChanged,
+} from "./release-contract";
 import type { PackageManifest } from "./release-contract";
 
-const ZERO_SHA = /^0+$/;
+const ZERO_SHA = /^0+$/u;
 
 const run = (command: string[]) => {
   const result = Bun.spawnSync(command, {
@@ -30,7 +33,9 @@ const readManifestAt = (revision: string, path: string) => {
 
 const [baseRevision, headRevision] = Bun.argv.slice(2);
 if (!baseRevision) {
-  throw new Error("Usage: bun run release:check <base-revision> [head-revision]");
+  throw new Error(
+    "Usage: bun run release:check <base-revision> [head-revision]"
+  );
 }
 
 if (ZERO_SHA.test(baseRevision)) {

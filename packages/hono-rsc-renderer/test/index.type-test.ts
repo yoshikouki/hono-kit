@@ -1,10 +1,7 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { createElement } from "react";
-import {
-  type RscLayout,
-  rscRenderer,
-} from "@yoshikouki/hono-rsc-renderer";
+import { type RscLayout, rscRenderer } from "@yoshikouki/hono-rsc-renderer";
 
 declare module "@yoshikouki/hono-rsc-renderer" {
   interface RscRenderProps {

@@ -17,8 +17,9 @@ const preparePackage = async (sourceDirectory: string) => {
   }
 
   const destination = `${RELEASE_ROOT}/${packageName}`;
-  const source = (await Bun.file(`${sourceDirectory}/package.json`).json()) as
-    PackageManifest;
+  const source = (await Bun.file(
+    `${sourceDirectory}/package.json`
+  ).json()) as PackageManifest;
   const manifest = publishedManifest(source);
 
   await mkdir(destination, { recursive: true });

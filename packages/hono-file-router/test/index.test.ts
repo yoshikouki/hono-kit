@@ -59,7 +59,7 @@ test("converts route files into Hono paths", () => {
 
 test("rejects unsupported dynamic segment syntax", () => {
   expect(() => routeFileToManifestPath("./posts/[slug]-edit.tsx")).toThrow(
-    /Unsupported dynamic route segment/
+    /Unsupported dynamic route segment/u
   );
 });
 
@@ -98,22 +98,17 @@ test("rejects non-canonical and application-owned Hono path patterns", () => {
 
   for (const path of rejected) {
     expect(() => assertSupportedRoutePath(path), path).toThrow(
-      /Unsupported file-router path/
+      /Unsupported file-router path/u
     );
   }
 });
 
 test("rejects URL dot segments in literal, encoded, and mixed forms", () => {
-  const rejected = [
-    "/.",
-    "/..",
-    "/a/%2E/b",
-    "/.%2e/b",
-  ];
+  const rejected = ["/.", "/..", "/a/%2E/b", "/.%2e/b"];
 
   for (const path of rejected) {
     expect(() => assertSupportedRoutePath(path), path).toThrow(
-      /URL dot segment/
+      /URL dot segment/u
     );
   }
 });
@@ -129,7 +124,7 @@ test("rejects static segments changed by Hono request-path decoding", () => {
 
   for (const path of rejected) {
     expect(() => assertSupportedRoutePath(path), path).toThrow(
-      /changes after Hono request-path decoding/
+      /changes after Hono request-path decoding/u
     );
   }
 });
@@ -144,7 +139,7 @@ test("rejects default-convention files that alias decoded static routes", () => 
         },
       ],
     })
-  ).toThrow(/changes after Hono request-path decoding/);
+  ).toThrow(/changes after Hono request-path decoding/u);
 });
 
 test("supports custom route path conventions", () => {
@@ -153,7 +148,10 @@ test("supports custom route path conventions", () => {
       name: "upper",
       toPath(file) {
         return {
-          path: `/${file.replace(/^\.\//, "").replace(/\.[^.]+$/, "").toUpperCase()}`,
+          path: `/${file
+            .replace(/^\.\//u, "")
+            .replace(/\.[^.]+$/u, "")
+            .toUpperCase()}`,
         };
       },
     },
@@ -172,7 +170,7 @@ test("supports custom route path conventions", () => {
 
 test("rejects duplicate dynamic segment names in one route path", () => {
   expect(() => routeFileToManifestPath("./users/[id]/posts/[id].ts")).toThrow(
-    /Duplicate dynamic route param "id"/
+    /Duplicate dynamic route param "id"/u
   );
 });
 
@@ -298,7 +296,7 @@ test("rejects same-shape primary route duplicates", () => {
         },
       ],
     })
-  ).toThrow(/Duplicate route/);
+  ).toThrow(/Duplicate route/u);
 });
 
 test("rejects generated routes that collide with primary routes", () => {
@@ -314,7 +312,7 @@ test("rejects generated routes that collide with primary routes", () => {
         },
       ],
     })
-  ).toThrow(/Duplicate route/);
+  ).toThrow(/Duplicate route/u);
 });
 
 test("allows generated routes that only overlap by dynamic shape", () => {
@@ -388,7 +386,7 @@ test("rejects duplicate generated routes for the same owner", () => {
         },
       ],
     })
-  ).toThrow(/Duplicate route/);
+  ).toThrow(/Duplicate route/u);
 });
 
 test("rejects duplicate generated routes across owners", () => {
@@ -420,7 +418,7 @@ test("rejects duplicate generated routes across owners", () => {
         },
       ],
     })
-  ).toThrow(/Duplicate route/);
+  ).toThrow(/Duplicate route/u);
 });
 
 test("rejects primary collisions between page and Hono route modules", () => {
@@ -443,7 +441,7 @@ test("rejects primary collisions between page and Hono route modules", () => {
         },
       ],
     })
-  ).toThrow(/Duplicate route/);
+  ).toThrow(/Duplicate route/u);
 });
 
 test("rejects dynamic files when a source disables dynamic routes", () => {
@@ -459,7 +457,7 @@ test("rejects dynamic files when a source disables dynamic routes", () => {
         },
       ],
     })
-  ).toThrow(/Dynamic route/);
+  ).toThrow(/Dynamic route/u);
 });
 
 test("creates a Hono sub-app from route config", async () => {
@@ -588,14 +586,17 @@ test("orders registrations independently of source order and route category", ()
 
   for (const reversed of [false, true]) {
     const plan = compileRegistrationPlan({
-      generatedRoutes: reversed ? generatedRoutes.toReversed() : generatedRoutes,
+      generatedRoutes: reversed
+        ? generatedRoutes.toReversed()
+        : generatedRoutes,
       handlers: reversed ? handlers.toReversed() : handlers,
       renderers: [textRenderer()],
       routes: reversed ? routes.toReversed() : routes,
     });
     expect(
-      plan.map((entry) =>
-        `${entry.kind}:${entry.kind === "hono" ? "OPAQUE" : entry.method}:${entry.path}`
+      plan.map(
+        (entry) =>
+          `${entry.kind}:${entry.kind === "hono" ? "OPAQUE" : entry.method}:${entry.path}`
       )
     ).toEqual(expected);
   }
@@ -659,9 +660,7 @@ test("allows one path across distinct concrete generated methods", async () => {
   expect(
     await (await app.request("/resource", { method: "POST" })).text()
   ).toBe("generated:POST");
-  expect(await (await app.request("/events")).text()).toBe(
-    "generated:ALL:GET"
-  );
+  expect(await (await app.request("/events")).text()).toBe("generated:ALL:GET");
   expect(
     await (await app.request("/events", { method: "DELETE" })).text()
   ).toBe("generated:ALL:DELETE");
@@ -722,13 +721,13 @@ test("rejects duplicate methods and equivalent dynamic shapes", () => {
   });
 
   expect(() => compileRegistrationPlan(duplicateMethod)).toThrow(
-    /Duplicate route shape "\/preview\/:param" for POST/
+    /Duplicate route shape "\/preview\/:param" for POST/u
   );
   expect(() => compileRegistrationPlan(allMethod)).toThrow(
-    /Duplicate route shape "\/events" for ALL/
+    /Duplicate route shape "\/events" for ALL/u
   );
   expect(() => compileRegistrationPlan(opaqueShape)).toThrow(
-    /Duplicate route shape "\/users\/:param" for opaque Hono methods/
+    /Duplicate route shape "\/users\/:param" for opaque Hono methods/u
   );
 });
 
@@ -847,7 +846,12 @@ test("preflights every configuration error before mutating the target app", () =
       path,
       handWrittenManifest({
         routes: [
-          { file: "./invalid.tsx", id: "text:invalid", path, rendererName: "text" },
+          {
+            file: "./invalid.tsx",
+            id: "text:invalid",
+            path,
+            rendererName: "text",
+          },
         ],
       }),
     ]);
@@ -939,11 +943,7 @@ test("passes the request Hono context to primary and generated renderers", async
     middlewareContexts.get("/users/123")
   );
 
-  const generated = await app.request(
-    "/__data/users/456",
-    undefined,
-    bindings
-  );
+  const generated = await app.request("/__data/users/456", undefined, bindings);
   expect(await generated.text()).toBe(
     "rendered:request:/__data/users/456:env:456:/users/:id"
   );
@@ -992,9 +992,9 @@ test("accepts eager root-only Hono modules with methods and handler chains", asy
   const getResponse = await app.request("/api");
   expect(await getResponse.text()).toBe("handled:get");
   expect(getResponse.headers.get("X-Route-Middleware")).toBe("true");
-  expect(
-    await (await app.request("/api", { method: "POST" })).text()
-  ).toBe("handled:post");
+  expect(await (await app.request("/api", { method: "POST" })).text()).toBe(
+    "handled:post"
+  );
   expect(middlewareCalls).toBe(2);
   expect(await (await app.request("/direct")).text()).toBe("all:GET");
 });
@@ -1035,7 +1035,7 @@ test("rejects fetch-only route objects", () => {
         },
       ],
     })
-  ).toThrow(/must export a Hono app/);
+  ).toThrow(/must export a Hono app/u);
 });
 
 test("preserves parent Context contracts for eager route modules", async () => {
@@ -1065,9 +1065,7 @@ test("preserves parent Context contracts for eager route modules", async () => {
   profile.get("/", (c) => {
     childContext = c;
     c.executionCtx.waitUntil(Promise.resolve());
-    return c.render(
-      `${c.var.greeting}:${c.env.prefix}:${c.req.param("id")}`
-    );
+    return c.render(`${c.var.greeting}:${c.env.prefix}:${c.req.param("id")}`);
   });
 
   const app = new Hono<TestEnv>();
@@ -1129,7 +1127,7 @@ test("rejects lazy Hono route sources with eager glob guidance", () => {
         },
       ],
     })
-  ).toThrow(/eager: true/);
+  ).toThrow(/eager: true/u);
 });
 
 test("rejects empty Hono route modules", () => {
@@ -1137,7 +1135,7 @@ test("rejects empty Hono route modules", () => {
     createRouteManifest({
       sources: [{ files: { "./empty.ts": new Hono() } }],
     })
-  ).toThrow(/at least one route at "\/"/);
+  ).toThrow(/at least one route at "\/"/u);
 });
 
 test("rejects non-root child routes and wildcard middleware", () => {
@@ -1149,7 +1147,7 @@ test("rejects non-root child routes and wildcard middleware", () => {
   for (const route of [nestedRoute, wildcardRoute]) {
     expect(() =>
       createRouteManifest({ sources: [{ files: { "./invalid.ts": route } }] })
-    ).toThrow(/must only define routes at/);
+    ).toThrow(/must only define routes at/u);
   }
 });
 
@@ -1170,6 +1168,6 @@ test("validates every Hono module before mutating the target app", () => {
         { files: { "./invalid.ts": invalid } },
       ],
     })
-  ).toThrow(/must only define routes at "\/"/);
+  ).toThrow(/must only define routes at "\/"/u);
   expect(app.routes).toEqual(originalRoutes);
 });
