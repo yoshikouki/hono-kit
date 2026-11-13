@@ -69,20 +69,6 @@
       }
     },
     {
-      "includes": [
-        "samples/rsc-vite-basic/test/built-handler.test.ts",
-        "scripts/release-contract.ts"
-      ],
-      "linter": {
-        "rules": {
-          "style": {
-            // Preserve existing positional captures and their consumers.
-            "useNamedCaptureGroup": "off"
-          }
-        }
-      }
-    },
-    {
       // パッケージの変更はリリースになるため、次のリリースで適用する（yoshikouki/agent#78）
       "includes": ["packages/**"],
       "formatter": {

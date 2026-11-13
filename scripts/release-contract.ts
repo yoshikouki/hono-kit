@@ -10,16 +10,16 @@ export interface PackageManifest {
   version: string;
 }
 
-const PACKAGE_PATH = /^packages\/([^/]+)\//u;
+const PACKAGE_PATH = /^packages\/(?<packageName>[^/]+)\//u;
 const VERSION =
-  /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-(?<prerelease>[0-9A-Za-z-]+)(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/u;
+  /^(?<major>0|[1-9]\d*)\.(?<minor>0|[1-9]\d*)\.(?<patch>0|[1-9]\d*)(?:-(?<prerelease>[0-9A-Za-z-]+)(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/u;
 const DIST_TAG = /^[a-z][a-z0-9-]*$/u;
 
 export const changedPackageDirectories = (paths: Iterable<string>) => {
   const directories = new Set<string>();
 
   for (const path of paths) {
-    const packageName = PACKAGE_PATH.exec(path)?.[1];
+    const packageName = PACKAGE_PATH.exec(path)?.groups?.packageName;
     if (packageName) {
       directories.add(`packages/${packageName}`);
     }
