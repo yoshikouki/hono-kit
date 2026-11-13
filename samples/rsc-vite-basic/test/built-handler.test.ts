@@ -7,7 +7,7 @@ async function loadBuiltHandler() {
 
 function responseNonce(response: Response): string {
   const csp = response.headers.get("Content-Security-Policy") ?? "";
-  const nonce = csp.match(/'nonce-([^']+)'/u)?.[1];
+  const nonce = csp.match(/'nonce-(?<nonce>[^']+)'/u)?.groups?.nonce;
   if (!nonce) {
     throw new Error("Expected a CSP nonce");
   }
