@@ -6,6 +6,7 @@ import {
   localPackageSpec,
   packageVersionChanged,
   publishedManifest,
+  singleNpmPackResult,
 } from "./release-contract";
 
 describe("changedPackageDirectories", () => {
@@ -112,5 +113,55 @@ describe("exportTargets", () => {
         "./package.json": "./package.json",
       })
     ).toEqual(["./dist/index.d.ts", "./dist/index.js", "./package.json"]);
+  });
+});
+
+describe("singleNpmPackResult", () => {
+  const packed = {
+    bundled: [],
+    entryCount: 2,
+    filename: "example-package-0.1.0-beta.0.tgz",
+    files: [
+      { mode: 420, path: "dist/index.js", size: 2 },
+      { mode: 420, path: "package.json", size: 34 },
+    ],
+    id: "@example/package@0.1.0-beta.0",
+    integrity: "sha512-example",
+    name: "@example/package",
+    shasum: "874eff8dde131139f0d3ba0b002951e5fadf9297",
+    size: 164,
+    unpackedSize: 36,
+    version: "0.1.0-beta.0",
+  };
+
+  it("reads the array printed by npm 11", () => {
+    expect(singleNpmPackResult([packed])).toMatchObject({
+      filename: "example-package-0.1.0-beta.0.tgz",
+      name: "@example/package",
+      version: "0.1.0-beta.0",
+    });
+  });
+
+  it("reads the object keyed by package name printed by npm 12", () => {
+    expect(singleNpmPackResult({ "@example/package": packed })).toMatchObject({
+      filename: "example-package-0.1.0-beta.0.tgz",
+      name: "@example/package",
+      version: "0.1.0-beta.0",
+    });
+  });
+
+  it("requires exactly one packed package", () => {
+    expect(() => singleNpmPackResult([])).toThrow("returned 0 packages");
+    expect(() => singleNpmPackResult({})).toThrow("returned 0 packages");
+    expect(() => singleNpmPackResult([packed, packed])).toThrow(
+      "returned 2 packages"
+    );
+  });
+
+  it("rejects output that does not describe a tarball", () => {
+    expect(() => singleNpmPackResult(null)).toThrow("unexpected shape");
+    expect(() => singleNpmPackResult([{ name: "@example/package" }])).toThrow(
+      "without name, version, and filename"
+    );
   });
 });
