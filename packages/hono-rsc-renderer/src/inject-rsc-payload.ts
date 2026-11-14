@@ -26,7 +26,7 @@ SOFTWARE.
 // Upstream streaming UTF-8 fallback loses buffered bytes on binary chunks.
 // Decode each chunk independently until upstream supports byte-exact transport.
 const encoder = new TextEncoder();
-const trailer = '</body></html>';
+const trailer = "</body></html>";
 
 export function injectRSCPayload(
   rscStream: ReadableStream<Uint8Array>,
@@ -45,9 +45,11 @@ export function injectRSCPayload(
   // invalid HTML by injecting RSC in between two partial chunks of HTML.
   const buffered: Uint8Array[] = [];
   let timeout: ReturnType<typeof setTimeout> | null = null;
-  function flushBufferedChunks(controller: TransformStreamDefaultController<Uint8Array>) {
+  function flushBufferedChunks(
+    controller: TransformStreamDefaultController<Uint8Array>
+  ) {
     for (const chunk of buffered) {
-      let buf = decoder.decode(chunk, {stream: true});
+      let buf = decoder.decode(chunk, { stream: true });
       if (buf.endsWith(trailer)) {
         buf = buf.slice(0, -trailer.length);
       }
@@ -84,7 +86,7 @@ export function injectRSCPayload(
         if (!startedRSC) {
           startedRSC = true;
           writeRSCStream(rscStream, controller, nonce)
-            .catch(err => controller.error(err))
+            .catch((err) => controller.error(err))
             .then(resolveFlightDataPromise);
         }
       }, 0);
@@ -96,7 +98,7 @@ export function injectRSCPayload(
         flushBufferedChunks(controller);
       }
       controller.enqueue(encoder.encode(trailer));
-    }
+    },
   });
 }
 
@@ -124,8 +126,16 @@ async function writeRSCStream(
   }
 }
 
-function writeChunk(chunk: string, controller: TransformStreamDefaultController<Uint8Array>, nonce?: string) {
-  controller.enqueue(encoder.encode(`<script${nonce ? ` nonce="${nonce}"` : ""}>${escapeScript(`(self.__FLIGHT_DATA||=[]).push(${chunk})`)}</script>`));
+function writeChunk(
+  chunk: string,
+  controller: TransformStreamDefaultController<Uint8Array>,
+  nonce?: string
+) {
+  controller.enqueue(
+    encoder.encode(
+      `<script${nonce ? ` nonce="${nonce}"` : ""}>${escapeScript(`(self.__FLIGHT_DATA||=[]).push(${chunk})`)}</script>`
+    )
+  );
 }
 
 // Escape closing script tags and HTML comments in JS content.
@@ -133,7 +143,8 @@ function writeChunk(chunk: string, controller: TransformStreamDefaultController<
 // Avoid replacing </script with <\/script as it would break the following valid JS: 0</script/ (i.e. regexp literal).
 // Instead, escape the s character.
 function escapeScript(script: string) {
+  // HTML tag names use ASCII case matching; /iu would also match long s (ſ).
   return script
-    .replace(/<!--/g, '<\\!--')
-    .replace(/<\/(script)/gi, '</\\$1');
+    .replace(/<!--/gu, "<\\!--")
+    .replace(/<\/(?<tag>[sS][cC][rR][iI][pP][tT])/gu, "</\\$<tag>");
 }

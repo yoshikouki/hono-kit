@@ -86,40 +86,99 @@ async function readEmbeddedFlight(html: string): Promise<Uint8Array> {
     "utf8"
   ).replace("export let rscStream", "let rscStream");
   runInNewContext(`${client}\nglobalThis.result = rscStream;`, context);
-  for (const match of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script\b[^>]*>/gi)) {
-    runInNewContext(match[1] ?? "", context);
+  for (const match of html.matchAll(
+    /<[sS][cC][rR][iI][pP][tT]\b[^>]*>(?<code>[\s\S]*?)<\/[sS][cC][rR][iI][pP][tT]\b[^>]*>/gu
+  )) {
+    runInNewContext(match.groups?.code ?? "", context);
   }
   onLoaded();
   return new Uint8Array(await new Response(context.result).arrayBuffer());
 }
+
+test.each([
+  ["SCRIPT", "SCRIPT"],
+  ["ScRiPt", "sCrIpT"],
+])("reads embedded Flight from <%s> and </%s>", async (opening, closing) => {
+  const payload = "</ſcript>";
+  const html = `<${opening}>(self.__FLIGHT_DATA||=[]).push(${JSON.stringify(payload)})</${closing}>`;
+
+  expect(await readEmbeddedFlight(html)).toEqual(
+    new TextEncoder().encode(payload)
+  );
+});
+
+test.each([
+  ["</ScRiPt><!--", "</\\ScRiPt><\\!--"],
+  ["</ſcript>", "</ſcript>"],
+])(
+  "escapes ASCII script tags while preserving %s",
+  async (payload, escaped) => {
+    const result = await renderHtmlWithRuntime(
+      textStream(payload),
+      "/entry.js",
+      {},
+      {
+        createFromReadableStream: async () => "root",
+        renderToReadableStream: () =>
+          textStream("<html><body>root</body></html>"),
+      }
+    );
+    const html = await new Response(result).text();
+
+    expect(html).toContain(`.push("${escaped}")`);
+    expect(await readEmbeddedFlight(html)).toEqual(
+      new TextEncoder().encode(payload)
+    );
+  }
+);
 
 const binary = new Uint8Array(2049).fill(0x61);
 binary[2048] = 0xe2;
 const text = new TextEncoder();
 
 test.each([
-  ["binary followed by Flight text", [text.encode("1:o801,"), binary, text.encode('0:{"bytes":"$1"}\n')]],
+  [
+    "binary followed by Flight text",
+    [text.encode("1:o801,"), binary, text.encode('0:{"bytes":"$1"}\n')],
+  ],
   ["incomplete UTF-8 at end of stream", [new Uint8Array([0x61, 0xe2])]],
-  ["split Japanese text", [new Uint8Array([0xe3]), new Uint8Array([0x81, 0x82])]],
+  [
+    "split Japanese text",
+    [new Uint8Array([0xe3]), new Uint8Array([0x81, 0x82])],
+  ],
   ["BOM bytes", [new Uint8Array([0xef, 0xbb, 0xbf, 0x61])]],
   ["large binary chunk", [new Uint8Array(256 * 1024).fill(0xff)]],
-  ["script-like text", [text.encode('</script><script>throw new Error("injected")</script><!--')]],
-] as const)("preserves %s through the embedded client stream", async (_name, chunks) => {
-  const source = new ReadableStream<Uint8Array>({
-    start(controller) {
-      for (const chunk of chunks) {
-        controller.enqueue(chunk);
+  [
+    "script-like text",
+    [text.encode('</script><script>throw new Error("injected")</script><!--')],
+  ],
+] as const)(
+  "preserves %s through the embedded client stream",
+  async (_name, chunks) => {
+    const source = new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (const chunk of chunks) {
+          controller.enqueue(chunk);
+        }
+        controller.close();
+      },
+    });
+    let ssrBytes: Uint8Array | undefined;
+    const result = await renderHtmlWithRuntime(
+      source,
+      "/entry.js",
+      {},
+      {
+        createFromReadableStream: async (stream) => {
+          ssrBytes = new Uint8Array(await new Response(stream).arrayBuffer());
+          return "root";
+        },
+        renderToReadableStream: () =>
+          textStream("<html><body>root</body></html>"),
       }
-      controller.close();
-    },
-  });
-  let ssrBytes: Uint8Array | undefined;
-  const result = await renderHtmlWithRuntime(source, "/entry.js", {}, {
-    createFromReadableStream: async (stream) => {
-      ssrBytes = new Uint8Array(await new Response(stream).arrayBuffer());
-      return "root";
-    },
-    renderToReadableStream: () => textStream("<html><body>root</body></html>"),
-  });
-  expect(await readEmbeddedFlight(await new Response(result).text())).toEqual(ssrBytes);
-});
+    );
+    expect(await readEmbeddedFlight(await new Response(result).text())).toEqual(
+      ssrBytes
+    );
+  }
+);

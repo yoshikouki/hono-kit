@@ -1,16 +1,16 @@
 import type { RoutePathConvention, RoutePathResult } from "./types";
 
-const RE_DYNAMIC_SEGMENT = /^\[([A-Za-z_$][\w$]*)\]$/;
-const RE_CATCH_ALL_SEGMENT = /^\[\.{3}([A-Za-z_$][\w$]*)\]$/;
-const RE_PLAIN_DYNAMIC_PATH_SEGMENT = /^:([A-Za-z_$][\w$]*)$/;
-const RE_CATCH_ALL_PATH_SEGMENT = /^:([A-Za-z_$][\w$]*)\{\.\+\}$/;
-const RE_STATIC_PATH_SEGMENT = /^[^\\:*?{}#]+$/;
-const RE_URL_DOT_SEGMENT = /^(?:\.|%2e){1,2}$/i;
-const RE_PERCENT_ENCODED_RUN = /(?:%[0-9A-Fa-f]{2})+/g;
-const RE_GROUP_SEGMENT = /^\(.+\)$/;
-const RE_LEADING_DOT_SLASH = /^\.\/+/;
-const RE_ROUTE_EXTENSION = /\.[^.]+$/;
-const RE_TRAILING_INDEX = /(^|\/)index$/;
+const RE_DYNAMIC_SEGMENT = /^\[(?<name>[A-Za-z_$][\w$]*)\]$/u;
+const RE_CATCH_ALL_SEGMENT = /^\[\.{3}(?<name>[A-Za-z_$][\w$]*)\]$/u;
+const RE_PLAIN_DYNAMIC_PATH_SEGMENT = /^:(?<name>[A-Za-z_$][\w$]*)$/u;
+const RE_CATCH_ALL_PATH_SEGMENT = /^:(?<name>[A-Za-z_$][\w$]*)\{\.\+\}$/u;
+const RE_STATIC_PATH_SEGMENT = /^[^\\:*?{}#]+$/u;
+const RE_URL_DOT_SEGMENT = /^(?:\.|%2e){1,2}$/iu;
+const RE_PERCENT_ENCODED_RUN = /(?:%[0-9A-Fa-f]{2})+/gu;
+const RE_GROUP_SEGMENT = /^\(.+\)$/u;
+const RE_LEADING_DOT_SLASH = /^\.\/+/u;
+const RE_ROUTE_EXTENSION = /\.[^.]+$/u;
+const RE_TRAILING_INDEX = /(?:^|\/)index$/u;
 
 interface RoutePathEntry {
   path: string;
@@ -30,11 +30,11 @@ const SEGMENT_ORDER: Record<RouteSegmentKind, number> = {
 };
 
 export function trimSlashes(value: string): string {
-  return value.replace(/^\/+|\/+$/g, "");
+  return value.replace(/^\/+|\/+$/gu, "");
 }
 
 export function normalizePath(value: string): string {
-  return value.replaceAll("\\", "/").replace(/\/+/g, "/");
+  return value.replaceAll("\\", "/").replace(/\/+/gu, "/");
 }
 
 export function dirname(path: string): string {
@@ -42,17 +42,13 @@ export function dirname(path: string): string {
   return index === -1 ? "" : path.slice(0, index);
 }
 
-function firstCapture(match: RegExpMatchArray | null): string | null {
-  return match?.[1] ?? null;
-}
-
 function dynamicSegmentName(segment: string, file: string): string | null {
-  const catchAllName = firstCapture(segment.match(RE_CATCH_ALL_SEGMENT));
+  const catchAllName = segment.match(RE_CATCH_ALL_SEGMENT)?.groups?.name;
   if (catchAllName) {
     return catchAllName;
   }
 
-  const dynamicName = firstCapture(segment.match(RE_DYNAMIC_SEGMENT));
+  const dynamicName = segment.match(RE_DYNAMIC_SEGMENT)?.groups?.name;
   if (dynamicName) {
     return dynamicName;
   }
@@ -71,7 +67,7 @@ function segmentToRoutePath(segment: string, file: string): string {
     return "";
   }
 
-  const catchAllName = firstCapture(segment.match(RE_CATCH_ALL_SEGMENT));
+  const catchAllName = segment.match(RE_CATCH_ALL_SEGMENT)?.groups?.name;
   if (catchAllName) {
     return `:${catchAllName}{.+}`;
   }
@@ -84,7 +80,10 @@ function segmentToRoutePath(segment: string, file: string): string {
   return segment;
 }
 
-function assertUniqueDynamicSegmentNames(segments: string[], file: string): void {
+function assertUniqueDynamicSegmentNames(
+  segments: string[],
+  file: string
+): void {
   const seen = new Set<string>();
   for (const segment of segments) {
     const paramName = dynamicSegmentName(segment, file);
@@ -180,7 +179,7 @@ function parseRoutePath(path: string): ParsedRouteSegment[] {
     return [];
   }
   if (!path.startsWith("/")) {
-    throw invalidRoutePath(path, "Paths must start with \"/\".");
+    throw invalidRoutePath(path, 'Paths must start with "/".');
   }
   if (path.endsWith("/")) {
     throw invalidRoutePath(path, "Trailing slashes are not canonical.");
@@ -193,8 +192,9 @@ function parseRoutePath(path: string): ParsedRouteSegment[] {
 
   const paramNames = new Set<string>();
   return rawSegments.map((segment, index) => {
-    const dynamicName = segment.match(RE_PLAIN_DYNAMIC_PATH_SEGMENT)?.[1];
-    const catchAllName = segment.match(RE_CATCH_ALL_PATH_SEGMENT)?.[1];
+    const dynamicName = segment.match(RE_PLAIN_DYNAMIC_PATH_SEGMENT)?.groups
+      ?.name;
+    const catchAllName = segment.match(RE_CATCH_ALL_PATH_SEGMENT)?.groups?.name;
     const paramName = dynamicName ?? catchAllName;
 
     if (paramName) {
@@ -290,8 +290,8 @@ export function sortRoutesBySpecificity<T extends RoutePathEntry>(
 
 function routeParamName(segment: string): string | null {
   return (
-    segment.match(RE_PLAIN_DYNAMIC_PATH_SEGMENT)?.[1] ??
-    segment.match(RE_CATCH_ALL_PATH_SEGMENT)?.[1] ??
+    segment.match(RE_PLAIN_DYNAMIC_PATH_SEGMENT)?.groups?.name ??
+    segment.match(RE_CATCH_ALL_PATH_SEGMENT)?.groups?.name ??
     null
   );
 }

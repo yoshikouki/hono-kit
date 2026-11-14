@@ -63,9 +63,10 @@ export type RenderRsc = (
   options: RenderRscOptions
 ) => ReadableStream<Uint8Array> | Promise<ReadableStream<Uint8Array>>;
 
-type RscRenderPropsArgument = Record<never, never> extends RscRenderProps
-  ? [props?: RscRenderProps]
-  : [props: RscRenderProps];
+type RscRenderPropsArgument =
+  Record<never, never> extends RscRenderProps
+    ? [props?: RscRenderProps]
+    : [props: RscRenderProps];
 
 declare module "hono" {
   interface ContextRenderer {
@@ -82,7 +83,7 @@ const RSC_CONTENT_TYPE = "text/x-component;charset=utf-8";
 const RSC_CACHE_CONTROL = "private, no-store";
 const NONCE_HTML_CACHE_CONTROL = "private, no-store";
 const DEFAULT_VARY_HEADERS = ["RSC", "Accept"] as const;
-const HTTP_FIELD_NAME_PATTERN = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
+const HTTP_FIELD_NAME_PATTERN = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/u;
 
 const DEFAULT_LAYOUT: RscLayout = ({ children }) =>
   createElement(Fragment, null, children);
@@ -140,7 +141,9 @@ function normalizeVaryHeaders(
   names: readonly [string, ...string[]]
 ): readonly [string, ...string[]] {
   if (names.length === 0) {
-    throw new TypeError("Custom RSC negotiation requires at least one Vary header");
+    throw new TypeError(
+      "Custom RSC negotiation requires at least one Vary header"
+    );
   }
 
   const normalizedNames: string[] = [];
@@ -148,7 +151,9 @@ function normalizeVaryHeaders(
 
   for (const name of names) {
     if (!HTTP_FIELD_NAME_PATTERN.test(name)) {
-      throw new TypeError(`Invalid Vary header field name: ${JSON.stringify(name)}`);
+      throw new TypeError(
+        `Invalid Vary header field name: ${JSON.stringify(name)}`
+      );
     }
 
     const normalizedName = name.toLowerCase();
@@ -283,9 +288,7 @@ interface ResolvedRscRendererOptions<E extends Env> {
   renderRsc: RenderRsc;
 }
 
-export function rscRenderer<
-  E extends Env = Env,
->(
+export function rscRenderer<E extends Env = Env>(
   component?: RscRendererComponent<E>,
   options: RscRendererOptions<E> = {}
 ): MiddlewareHandler<E> {
@@ -308,9 +311,7 @@ export function rscRenderer<
   return (c, next) => {
     const currentLayout = (c.getLayout() ?? DEFAULT_LAYOUT) as RscLayout;
     if (component) {
-      c.setLayout((props) =>
-        component({ ...props, Layout: currentLayout }, c)
-      );
+      c.setLayout((props) => component({ ...props, Layout: currentLayout }, c));
     }
     c.setRenderer(createRenderer(c, currentLayout, component, resolvedOptions));
     return next();
