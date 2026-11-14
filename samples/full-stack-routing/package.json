@@ -22,7 +22,7 @@
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-rsc": "^0.5.38",
     "remark-frontmatter": "^5.0.0",
-    "remark-mdx-frontmatter": "^5.2.0",
+    "remark-mdx-frontmatter": "^6.0.0",
     "typescript": "^7.0.2",
     "vite": "^8.1.5"
   }
