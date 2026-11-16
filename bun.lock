@@ -14,7 +14,7 @@
       "name": "@yoshikouki/hono-file-router",
       "version": "0.1.0-beta.3",
       "devDependencies": {
-        "hono": "^4.13.7",
+        "hono": "^4.13.18",
         "typescript": "^7.0.2",
         "vite": "^8.1.5",
       },
@@ -32,7 +32,7 @@
         "@types/react": "19.3.0",
         "@types/react-dom": "19.3.0",
         "@vitejs/plugin-rsc": "^0.5.38",
-        "hono": "^4.13.7",
+        "hono": "^4.13.18",
         "react": "19.3.1",
         "react-dom": "19.3.1",
         "react-server-dom-webpack": "19.3.1",
@@ -51,7 +51,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@yoshikouki/hono-file-router": "workspace:*",
-        "hono": "^4.13.7",
+        "hono": "^4.13.18",
       },
       "devDependencies": {
         "typescript": "^7.0.2",
@@ -65,7 +65,7 @@
       "dependencies": {
         "@yoshikouki/hono-file-router": "workspace:*",
         "@yoshikouki/hono-rsc-renderer": "workspace:*",
-        "hono": "^4.13.7",
+        "hono": "^4.13.18",
         "react": "19.3.1",
         "react-dom": "19.3.1",
         "react-server-dom-webpack": "19.3.1",
@@ -86,7 +86,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@yoshikouki/hono-rsc-renderer": "workspace:*",
-        "hono": "^4.13.7",
+        "hono": "^4.13.18",
         "react": "19.3.1",
         "react-dom": "19.3.1",
         "react-server-dom-webpack": "19.3.1",
@@ -106,7 +106,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@yoshikouki/hono-rsc-renderer": "workspace:*",
-        "hono": "^4.13.7",
+        "hono": "^4.13.18",
         "react": "19.3.1",
         "react-dom": "19.3.1",
         "react-server-dom-webpack": "19.3.1",
@@ -701,7 +701,7 @@
 
     "hast-util-whitespace": ["hast-util-whitespace@3.0.0", "", { "dependencies": { "@types/hast": "^3.0.0" } }, "sha512-88JUN06ipLwsnv+dVn+OIYOvAuvBMy/Qoi6O7mQHxdPXpjy+Cd6xRkWwux7DKO+4sYILtLBRIKgsdpS2gQc7qw=="],
 
-    "hono": ["hono@4.13.7", "", {}, "sha512-c8/gF9ac8Y78/agExVocyLevgR+JlpNB444Py0FSX8pJoPdYUfUzRcXtYEYGwt6l19qIlVZPN5Mfsw9jFShmQQ=="],
+    "hono": ["hono@4.13.18", "", {}, "sha512-H9q/E1XizaWstJxUW881dmLxEj+t/TrGGnyxINkm4+sK0qUwsMtFdo2BWI9Vs3cIS19MU6b6iCijoUoEf4f3DA=="],
 
     "human-signals": ["human-signals@8.0.1", "", {}, "sha512-eKCa6bwnJhvxj14kZk5NCPc6Hb6BdsU9DZcOnmQKSnO1VKrfV0zCvtttPZUsBvjmNDn8rpcJfpwSYnHBjc95MQ=="],
 
