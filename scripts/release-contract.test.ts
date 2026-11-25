@@ -4,6 +4,7 @@ import {
   distTagForVersion,
   exportTargets,
   localPackageSpec,
+  packageChangeNeedsVersion,
   packageVersionChanged,
   publishedManifest,
   singleNpmPackResult,
@@ -59,6 +60,49 @@ describe("packageVersionChanged", () => {
         { name: "@example/package", version: "0.1.0-beta.0" }
       )
     ).toBeFalse();
+  });
+});
+
+describe("packageChangeNeedsVersion", () => {
+  const directory = "packages/example";
+  const manifest = {
+    devDependencies: { vite: "^8.1.5" },
+    name: "@example/package",
+    peerDependencies: { hono: ">=4.0.0" },
+    version: "0.1.0",
+  };
+
+  it("ignores a change confined to devDependencies", () => {
+    expect(
+      packageChangeNeedsVersion(
+        directory,
+        ["packages/example/package.json"],
+        manifest,
+        { ...manifest, devDependencies: { vite: "^8.3.8" } }
+      )
+    ).toBeFalse();
+  });
+
+  it("requires a version when the published manifest changes", () => {
+    expect(
+      packageChangeNeedsVersion(
+        directory,
+        ["packages/example/package.json"],
+        manifest,
+        { ...manifest, peerDependencies: { hono: ">=4.1.0" } }
+      )
+    ).toBeTrue();
+  });
+
+  it("requires a version when any other package file changes", () => {
+    expect(
+      packageChangeNeedsVersion(
+        directory,
+        ["packages/example/package.json", "packages/example/src/index.ts"],
+        manifest,
+        { ...manifest, devDependencies: { vite: "^8.3.8" } }
+      )
+    ).toBeTrue();
   });
 });
 

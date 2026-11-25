@@ -64,7 +64,8 @@ bun run test
 
 Each package version is an explicit release declaration. A pull request that
 changes files below `packages/<name>` must also assign that package a new
-semantic version. Prerelease versions use their first prerelease identifier as
+semantic version. A change confined to `devDependencies` in a package's
+`package.json` is exempt, because those never reach npm. Prerelease versions use their first prerelease identifier as
 the npm dist-tag, so `0.1.0-beta.1` is published with the `beta` tag. Stable
 versions use `latest`.
 
