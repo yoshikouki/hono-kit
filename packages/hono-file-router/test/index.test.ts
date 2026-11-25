@@ -3,13 +3,8 @@ import { Hono } from "hono";
 import type { Context } from "hono";
 import { Hono as QuickHono } from "hono/quick";
 import { Hono as TinyHono } from "hono/tiny";
-import {
-  createFileRouter,
-  createRouteManifest,
-  mountFileRoutes,
-  type FileRouteRenderer,
-  type RouteManifest,
-} from "../src";
+import type { FileRouteRenderer, RouteManifest } from "../src";
+import { createFileRouter, createRouteManifest, mountFileRoutes } from "../src";
 import {
   assertSupportedRoutePath,
   compareRouteSpecificity,

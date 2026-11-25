@@ -33,8 +33,8 @@
   },
   "packageManager": "bun@1.3.14",
   "devDependencies": {
-    "@biomejs/biome": "2.6.7",
+    "@biomejs/biome": "2.6.8",
     "typescript": "^7.0.2",
-    "ultracite": "8.2.0"
+    "ultracite": "8.3.1"
   }
 }

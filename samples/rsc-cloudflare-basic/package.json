@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@yoshikouki/hono-rsc-renderer": "workspace:*",
-    "hono": "^4.13.7",
+    "hono": "^4.13.20",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "react-server-dom-webpack": "19.3.1"
@@ -24,7 +24,7 @@
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-rsc": "^0.5.38",
     "typescript": "^7.0.2",
-    "vite": "^8.1.5",
+    "vite": "^8.3.8",
     "wrangler": "^4.166.0"
   }
 }

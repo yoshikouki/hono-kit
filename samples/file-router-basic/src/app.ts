@@ -1,8 +1,6 @@
 import { Hono } from "hono";
-import {
-  createFileRouter,
-  type HonoRouteSource,
-} from "@yoshikouki/hono-file-router";
+import type { HonoRouteSource } from "@yoshikouki/hono-file-router";
+import { createFileRouter } from "@yoshikouki/hono-file-router";
 
 export const fileBasedRoutes = createFileRouter({
   sources: [

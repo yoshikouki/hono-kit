@@ -11,10 +11,8 @@ import type {
   RouteSource,
 } from "./types";
 import { validatedHonoApp } from "./hono-route";
-import {
-  assertNoRegistrationCollisions,
-  type CollisionRegistration,
-} from "./registration-plan";
+import type { CollisionRegistration } from "./registration-plan";
+import { assertNoRegistrationCollisions } from "./registration-plan";
 import {
   honoFilePathConvention,
   hasDynamicRouteSegments,

@@ -152,8 +152,7 @@ app.get(
   "*",
   rscRenderer(undefined, {
     negotiation: {
-      negotiate: (c) =>
-        c.req.header("X-Flight") === "1" ? "rsc" : "html",
+      negotiate: (c) => (c.req.header("X-Flight") === "1" ? "rsc" : "html"),
       varyHeaders: ["X-Flight"],
     },
   })
@@ -192,7 +191,11 @@ logging and reporting:
 app.get(
   "*",
   rscRenderer(
-    ({ children }) => <html><body>{children}</body></html>,
+    ({ children }) => (
+      <html>
+        <body>{children}</body>
+      </html>
+    ),
     {
       onError: (error, c) => {
         reportRenderError(error, {
@@ -365,10 +368,10 @@ The default browser entry hydrates the document and refreshes Flight during HMR.
 It does not intercept links, manage browser history, or perform client-side page
 navigation. Same-path Flight support is a transport, not a client router.
 
-| Goal | Integration |
-| --- | --- |
-| Animate ordinary page links | Keep document navigation and opt both pages into CSS cross-document view transitions. No client router is required. |
-| Animate updates within a page | Use React 19.3 `ViewTransition` in a client component, with state updates inside `startTransition`. |
+| Goal                               | Integration                                                                                                                                             |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Animate ordinary page links        | Keep document navigation and opt both pages into CSS cross-document view transitions. No client router is required.                                     |
+| Animate updates within a page      | Use React 19.3 `ViewTransition` in a client component, with state updates inside `startTransition`.                                                     |
 | Animate page changes through React | Provide a client navigation layer that fetches Flight and updates the existing React tree within a Transition. The default entry does not provide this. |
 
 See the page-local example in `samples/rsc-vite-basic`,
