@@ -1,3 +1,5 @@
+import { isDeepStrictEqual } from "node:util";
+
 export interface PackageManifest {
   [key: string]: unknown;
   name: string;
@@ -51,6 +53,26 @@ export const packageVersionChanged = (
   previous: PackageManifest,
   current: PackageManifest
 ) => previous.version !== current.version;
+
+const releasedManifestFields = ({
+  devDependencies,
+  version,
+  ...manifest
+}: PackageManifest) => manifest;
+
+// devDependencies never reach npm, so a change confined to them in
+// package.json leaves the published package as it was.
+export const packageChangeNeedsVersion = (
+  directory: string,
+  changedPaths: readonly string[],
+  previous: PackageManifest,
+  current: PackageManifest
+) =>
+  changedPaths.some((path) => path !== `${directory}/package.json`) ||
+  !isDeepStrictEqual(
+    releasedManifestFields(previous),
+    releasedManifestFields(current)
+  );
 
 export const localPackageSpec = (directory: string) =>
   directory.startsWith("./") ? directory : `./${directory}`;

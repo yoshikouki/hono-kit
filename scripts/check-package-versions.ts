@@ -1,5 +1,6 @@
 import {
   changedPackageDirectories,
+  packageChangeNeedsVersion,
   packageVersionChanged,
 } from "./release-contract";
 import type { PackageManifest } from "./release-contract";
@@ -60,9 +61,8 @@ if (diff.exitCode !== 0) {
   throw new Error(diff.stderr || "Failed to inspect changed packages.");
 }
 
-const changedDirectories = changedPackageDirectories(
-  diff.stdout.split("\n").filter(Boolean)
-);
+const changedPaths = diff.stdout.split("\n").filter(Boolean);
+const changedDirectories = changedPackageDirectories(changedPaths);
 const changedPackages = await Promise.all(
   changedDirectories.map(async (directory) => {
     const manifestPath = `${directory}/package.json`;
@@ -71,14 +71,26 @@ const changedPackages = await Promise.all(
     }
 
     return {
+      changedPaths: changedPaths.filter((path) =>
+        path.startsWith(`${directory}/`)
+      ),
       current: await readManifest(manifestPath),
+      directory,
       previous: readManifestAt(baseRevision, manifestPath),
     };
   })
 );
 const violations = changedPackages.flatMap((changedPackage) => {
   if (
-    !changedPackage?.previous ||
+    !(
+      changedPackage?.previous &&
+      packageChangeNeedsVersion(
+        changedPackage.directory,
+        changedPackage.changedPaths,
+        changedPackage.previous,
+        changedPackage.current
+      )
+    ) ||
     packageVersionChanged(changedPackage.previous, changedPackage.current)
   ) {
     return [];
