@@ -1,8 +1,6 @@
 import { Hono } from "hono";
-import {
-  createFileRouter,
-  type HonoRouteSource,
-} from "@yoshikouki/hono-file-router";
+import type { HonoRouteSource } from "@yoshikouki/hono-file-router";
+import { createFileRouter } from "@yoshikouki/hono-file-router";
 import { rscRenderer } from "@yoshikouki/hono-rsc-renderer";
 import Guide, {
   frontmatter as guideFrontmatter,

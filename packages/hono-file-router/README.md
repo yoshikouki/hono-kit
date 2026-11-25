@@ -108,10 +108,10 @@ Hono values fail during manifest creation with guidance to add `{ eager: true }`
 
 The default convention maps route-root-relative file keys as follows:
 
-| File | Route path |
-| --- | --- |
-| `./index.ts` | `/` |
-| `./users/[id]/index.ts` | `/users/:id` |
+| File                           | Route path        |
+| ------------------------------ | ----------------- |
+| `./index.ts`                   | `/`               |
+| `./users/[id]/index.ts`        | `/users/:id`      |
 | `./docs/(guides)/[...slug].ts` | `/docs/:slug{.+}` |
 
 Route groups are omitted. `index` maps to its directory. `[name]` becomes a

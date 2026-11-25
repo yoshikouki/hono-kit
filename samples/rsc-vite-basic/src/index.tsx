@@ -1,9 +1,6 @@
 import { Hono } from "hono";
-import {
-  NONCE,
-  secureHeaders,
-  type SecureHeadersVariables,
-} from "hono/secure-headers";
+import type { SecureHeadersVariables } from "hono/secure-headers";
+import { NONCE, secureHeaders } from "hono/secure-headers";
 import { rscRenderer } from "@yoshikouki/hono-rsc-renderer";
 import HomePage from "./pages/home";
 import UserPage from "./pages/users/[id]";
