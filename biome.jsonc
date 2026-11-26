@@ -38,7 +38,8 @@
         "noExcessiveCognitiveComplexity": "off"
       },
       "performance": {
-        "noBarrelFile": "off"
+        "noBarrelFile": "off",
+        "noJsxPropsBind": "off"
       },
       "style": {
         "useConsistentArrayType": "off",
