@@ -16,9 +16,13 @@
     "react-server-dom-webpack": "19.3.1"
   },
   "devDependencies": {
+    "@babel/core": "^8.1.2",
+    "@rolldown/plugin-babel": "^0.3.1",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
     "@vitejs/plugin-rsc": "^0.5.38",
+    "babel-plugin-react-compiler": "^1.0.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.8"
   }
