@@ -1,4 +1,3 @@
-// biome-ignore-all lint/performance/noJsxPropsBind: DOM event handlers in this sample do not need stable references.
 "use client";
 
 import {

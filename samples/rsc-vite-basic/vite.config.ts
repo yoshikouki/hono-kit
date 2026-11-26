@@ -1,8 +1,10 @@
+import babel from "@rolldown/plugin-babel";
+import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import rsc from "@vitejs/plugin-rsc";
 import { defineConfig } from "vite";
 
 export default defineConfig({
-  plugins: [rsc()],
+  plugins: [react(), babel({ presets: [reactCompilerPreset()] }), rsc()],
   environments: {
     rsc: {
       build: {
